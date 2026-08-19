@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#16624f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/workledger.svg' %}">
+  <title>{% block title %}WorkLedger{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/workledger.css' %}">
+  <script defer src="{% static 'vendor/htmx.min.js' %}"></script>
+  <script defer src="{% static 'js/workledger-ui.js' %}"></script>
+  <script defer src="{% static 'vendor/alpine.min.js' %}"></script>
+  <script defer src="{% static 'js/drafts.js' %}"></script>
+  <script defer src="{% static 'js/pwa.js' %}"></script>
+</head>
+<body>
+  <main class="wl-page{% block page_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

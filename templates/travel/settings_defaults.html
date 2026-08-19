@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Defaults · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="defaults" subtitle="the currency, time zone, and output defaults already in your configuration." only %}
+
+<section class="wl-section" data-defaults-page>
+  <dl class="wl-meta-list">
+    {% for default in defaults %}
+    <div class="wl-meta-row" data-default-row>
+      <dt class="wl-meta-row__label">{{ default.label }}</dt>
+      <dd class="wl-meta-row__value wl-break">{{ default.value }}{% if default.note %} <span class="wl-muted">· {{ default.note }}</span>{% endif %}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  <p class="wl-muted">These defaults come from the WorkLedger configuration and the entry forms; nothing here is stored separately. To change them, update the environment configuration (for example <code>TZ</code>) or the entry defaults in the codebase.</p>
+</section>
+{% endblock %}

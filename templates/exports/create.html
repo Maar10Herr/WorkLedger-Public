@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Exports · WorkLedger{% endblock %}
+{% block content %}
+{% url 'home' as home_url %}
+{% include "components/page_header.html" with back=home_url back_label="home" title="exports" subtitle="reproducible files frozen at the time you generate them." only %}
+
+{% if error %}<p class="wl-error" role="alert">{{ error }}</p>{% endif %}
+
+<form method="post" class="wl-panel wl-panel__form" x-data="exportPurpose" data-export-page>
+  {% csrf_token %}
+  <section class="wl-section">
+    <h2 class="wl-section__title">date range</h2>
+    <div class="wl-row">
+      <div class="wl-field">
+        <label class="wl-field__label" for="export-start">from</label>
+        <input class="wl-field__input" id="export-start" type="date" name="start" required value="{{ today|date:'Y-m-d' }}">
+      </div>
+      <div class="wl-field">
+        <label class="wl-field__label" for="export-end">through</label>
+        <input class="wl-field__input" id="export-end" type="date" name="end" required value="{{ today|date:'Y-m-d' }}">
+      </div>
+    </div>
+  </section>
+
+  <section class="wl-section">
+    <h2 class="wl-section__title">purpose</h2>
+    <label class="wl-check"><input type="radio" name="purpose" value="tax" data-export-purpose @change="selectFormat('xlsx')" checked> for my tax return</label>
+    <label class="wl-check"><input type="radio" name="purpose" value="employer" data-export-purpose @change="selectFormat('xlsx')"> for employer reimbursement</label>
+    <label class="wl-check"><input type="radio" name="purpose" value="complete" data-export-purpose @change="selectFormat('full_zip')"> complete archive with evidence</label>
+  </section>
+
+  <section class="wl-section">
+    <h2 class="wl-section__title">format</h2>
+    <div class="wl-callout" data-export-format-group>
+      <p class="wl-callout__title">data formats</p>
+      <label class="wl-check"><input type="radio" name="kind" value="xlsx" checked> Excel workbook</label>
+      <label class="wl-check"><input type="radio" name="kind" value="csv"> CSV</label>
+      <label class="wl-check"><input type="radio" name="kind" value="json"> JSON</label>
+      <label class="wl-check"><input type="radio" name="kind" value="sqlite"> Portable SQLite</label>
+    </div>
+    <div class="wl-callout" data-export-attachments-group>
+      <p class="wl-callout__title">with attachments</p>
+      <label class="wl-check"><input type="radio" name="kind" value="full_zip"> Complete ZIP with evidence</label>
+    </div>
+  </section>
+
+  <button class="wl-btn wl-btn--primary wl-btn--block">generate export</button>
+</form>
+
+{% if jobs %}
+<section class="wl-section">
+  <h2 class="wl-section__title">recent jobs</h2>
+  <ul class="wl-record-list">
+    {% for job in jobs %}
+    <li class="wl-record" data-export-job>
+      <span class="wl-record__title">{{ job.get_status_display }}</span>
+      <span class="wl-record__meta">{{ job.range_start }} – {{ job.range_end }} · {{ job.get_kind_display }}{% if job.artifact %} · generated {{ job.completed_at|date:"Y-m-d H:i" }}{% endif %}</span>
+      {% if job.artifact %}
+      <span class="wl-record__actions">
+        <a class="wl-btn wl-btn--secondary" href="{% url 'exports:download_export' job.artifact.id %}">download</a>
+      </span>
+      <details class="wl-disclosure" data-technical-details>
+        <summary class="wl-disclosure__summary">technical details</summary>
+        <div class="wl-disclosure__body">
+          <dl class="wl-meta-list">
+            {% include "components/meta_row.html" with label="sha-256" value=job.artifact.sha256 only %}
+            {% include "components/meta_row.html" with label="size" value=job.artifact.size_bytes only %}
+          </dl>
+        </div>
+      </details>
+      {% endif %}
+      {% if job.error %}<p class="wl-field__error">{{ job.error }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if artifacts %}
+<section class="wl-section">
+  <h2 class="wl-section__title">recent exports</h2>
+  <ul class="wl-record-list">
+    {% for artifact in artifacts %}
+    <li class="wl-record" data-export-artifact>
+      <span class="wl-record__title">{{ artifact.get_kind_display }}</span>
+      <span class="wl-record__meta">{{ artifact.range_start }} – {{ artifact.range_end }} · {{ artifact.created_at|date:"Y-m-d H:i" }}</span>
+      <span class="wl-record__actions">
+        <a class="wl-btn wl-btn--secondary" href="{% url 'exports:download_export' artifact.id %}">download</a>
+      </span>
+      <details class="wl-disclosure" data-technical-details>
+        <summary class="wl-disclosure__summary">technical details</summary>
+        <div class="wl-disclosure__body">
+          <dl class="wl-meta-list">
+            {% include "components/meta_row.html" with label="sha-256" value=artifact.sha256 only %}
+            {% include "components/meta_row.html" with label="size" value=artifact.size_bytes only %}
+          </dl>
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<p class="wl-empty">no exports generated yet</p>
+{% endif %}
+{% endblock %}

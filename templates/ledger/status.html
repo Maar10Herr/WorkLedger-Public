@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}System status · WorkLedger{% endblock %}
+{% block content %}
+{% url 'home' as home_url %}
+{% include "components/page_header.html" with back=home_url back_label="home" title="system status" subtitle="a quick health summary; the internals are below." only %}
+
+<section class="wl-section" data-status-summary>
+  <div class="wl-callout{% if report.healthy %} wl-callout--green{% else %} wl-callout--warning{% endif %}">
+    <p class="wl-callout__title">{% if report.healthy %}all healthy{% else %}needs attention{% endif %}</p>
+    {% if report.healthy %}
+    <p class="wl-callout__note">{{ report.event_count }} event{{ report.event_count|pluralize }}{% if report.incomplete_count %}, {{ report.incomplete_count }} incomplete{% endif %} — everything is working.</p>
+    {% else %}
+    <p class="wl-callout__note">attention needed: {% for check in report.failing %}{{ check.label }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+  </div>
+  {% if not report.healthy %}
+  <p class="wl-muted">{{ report.event_count }} event{{ report.event_count|pluralize }}{% if report.incomplete_count %}, {{ report.incomplete_count }} incomplete{% endif %}.</p>
+  {% endif %}
+</section>
+
+<section class="wl-section">
+  <details class="wl-disclosure" data-technical-details>
+    <summary class="wl-disclosure__summary">internals</summary>
+    <div class="wl-disclosure__body">
+      <dl class="wl-meta-list">
+        {% for check in report.checks %}
+        <div class="wl-meta-row" data-status-check="{{ check.key }}">
+          <dt class="wl-meta-row__label">{{ check.label }}</dt>
+          <dd class="wl-meta-row__value">
+            {% include "components/badge.html" with label=check.ok|yesno:"healthy,problem" variant=check.ok|yesno:"green,warning" only %}
+            <span class="wl-muted">{{ check.detail }}</span>
+          </dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </div>
+  </details>
+</section>
+{% endblock %}

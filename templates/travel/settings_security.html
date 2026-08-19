@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Security · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="security" subtitle="your PIN protects everything in WorkLedger." only %}
+
+<section class="wl-section" data-security-page>
+  <div class="wl-callout{% if pin_configured %} wl-callout--green{% else %} wl-callout--warning{% endif %}">
+    <p class="wl-callout__title">{% if pin_configured %}PIN is set{% else %}no PIN configured{% endif %}</p>
+    <p class="wl-callout__note">{% if pin_configured %}The app is locked unless the PIN is entered.{% else %}Run the owner setup to create a PIN.{% endif %}</p>
+  </div>
+
+  <dl class="wl-meta-list">
+    <div class="wl-meta-row" data-pin-configured>
+      <dt class="wl-meta-row__label">PIN hashing</dt>
+      <dd class="wl-meta-row__value">{{ hasher_label|default:"—" }}</dd>
+    </div>
+    <div class="wl-meta-row">
+      <dt class="wl-meta-row__label">session length</dt>
+      <dd class="wl-meta-row__value">{{ session_days }} days</dd>
+    </div>
+    <div class="wl-meta-row" data-lockout-state>
+      <dt class="wl-meta-row__label">failed attempts</dt>
+      <dd class="wl-meta-row__value">{{ failed_attempts }}</dd>
+    </div>
+    <div class="wl-meta-row" data-lockout-state>
+      <dt class="wl-meta-row__label">lockout</dt>
+      <dd class="wl-meta-row__value">{% if lockout_until %}temporarily locked until {{ lockout_until }}{% else %}none active{% endif %}</dd>
+    </div>
+  </dl>
+
+  <form method="post" action="{% url 'accounts:logout' %}" data-lock-now>
+    {% csrf_token %}
+    <button type="submit" class="wl-btn wl-btn--destructive wl-btn--block">
+      {% include "components/icon.html" with name="lock" size="18" only %}
+      <span>lock now</span>
+    </button>
+  </form>
+</section>
+
+<section class="wl-section">
+  <h2 class="wl-section__title">change PIN</h2>
+  {% if error %}
+  <p class="wl-field__error" role="alert" data-pin-error>{{ error }}</p>
+  {% endif %}
+  {% if success %}
+  <p class="wl-callout wl-callout--green" data-pin-success>{{ success }}</p>
+  {% endif %}
+  <form method="post" class="wl-panel wl-panel__form" data-pin-change>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="change_pin">
+    <div class="wl-field">
+      <label class="wl-field__label" for="pin-current">current PIN</label>
+      <input class="wl-field__input wl-field__input--pin" id="pin-current" name="current_pin" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="current-password" required>
+    </div>
+    <div class="wl-field">
+      <label class="wl-field__label" for="pin-new">new PIN</label>
+      <input class="wl-field__input wl-field__input--pin" id="pin-new" name="new_pin" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="new-password" required>
+    </div>
+    <div class="wl-field">
+      <label class="wl-field__label" for="pin-confirm">repeat new PIN</label>
+      <input class="wl-field__input wl-field__input--pin" id="pin-confirm" name="confirmation" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="new-password" required>
+    </div>
+    <p class="wl-field__helper">At least four digits. The current PIN must be verified; failed attempts keep the normal lockout.</p>
+    <button class="wl-btn wl-btn--primary wl-btn--block">change PIN</button>
+  </form>
+</section>
+{% endblock %}

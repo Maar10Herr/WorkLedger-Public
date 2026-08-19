@@ -1,0 +1,27 @@
+{% comment %}
+Button or link with variants: primary, secondary, destructive.
+Usage:
+  {% include "components/button.html" with label="undo" variant="destructive" attrs='data-confirm="1"' only %}
+  {% include "components/button.html" with label="edit" href=edit_url icon="edit" only %}
+  {% include "components/button.html" with label="enter another" href=enter_url variant="primary" block=True only %}
+Inside a form, omit href and the partial renders a submit button.
+{% endcomment %}
+{% if href %}
+<a
+  href="{{ href }}"
+  class="wl-btn{% if variant == 'primary' %} wl-btn--primary{% elif variant == 'destructive' %} wl-btn--destructive{% else %} wl-btn--secondary{% endif %}{% if block %} wl-btn--block{% endif %}"
+  {% if attrs %}{{ attrs }}{% endif %}
+>
+  {% if icon %}{% include "components/icon.html" with name=icon size="18" only %}{% endif %}
+  <span>{{ label }}</span>
+</a>
+{% else %}
+<button
+  type="{{ type|default:'submit' }}"
+  class="wl-btn{% if variant == 'primary' %} wl-btn--primary{% elif variant == 'destructive' %} wl-btn--destructive{% else %} wl-btn--secondary{% endif %}{% if block %} wl-btn--block{% endif %}"
+  {% if attrs %}{{ attrs }}{% endif %}
+>
+  {% if icon %}{% include "components/icon.html" with name=icon size="18" only %}{% endif %}
+  <span>{{ label }}</span>
+</button>
+{% endif %}

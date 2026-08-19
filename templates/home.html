@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}WorkLedger{% endblock %}
+{% block content %}
+<header class="wl-header wl-header--row">
+  <div>
+    <p class="wl-eyebrow">workledger</p>
+    <h1 class="wl-title">what do you need?</h1>
+  </div>
+  <div
+    class="wl-menu-wrap"
+    x-data="wlMenu"
+    @keydown.escape.window="open && close()"
+  >
+    <button
+      type="button"
+      class="wl-menu-trigger"
+      x-ref="trigger"
+      aria-haspopup="menu"
+      aria-controls="home-menu"
+      :aria-expanded="open ? 'true' : 'false'"
+      aria-label="secondary menu"
+      @click="toggle()"
+      @keydown="onTriggerKeydown($event)"
+    >
+      {% include "components/icon.html" with name="menu-dots" size="20" only %}
+    </button>
+    <nav
+      id="home-menu"
+      class="wl-menu"
+      role="menu"
+      aria-label="secondary menu"
+      x-show="open"
+      x-ref="panel"
+      x-cloak
+      @click.outside="close()"
+      @keydown="trapFocus($event)"
+    >
+      <a role="menuitem" class="wl-menu__item" href="{% url 'travel:settings' %}">
+        {% include "components/icon.html" with name="settings" size="18" only %}
+        <span>settings</span>
+      </a>
+      <a role="menuitem" class="wl-menu__item" href="{% url 'exports:create_export' %}">
+        {% include "components/icon.html" with name="download" size="18" only %}
+        <span>exports</span>
+      </a>
+      <a role="menuitem" class="wl-menu__item" href="{% url 'exports:employer_packages' %}">
+        {% include "components/icon.html" with name="package" size="18" only %}
+        <span>employer packages</span>
+      </a>
+      <a role="menuitem" class="wl-menu__item" href="{% url 'ledger:unresolved' %}">
+        {% include "components/icon.html" with name="alert" size="18" only %}
+        <span>unresolved entries</span>
+      </a>
+      <a role="menuitem" class="wl-menu__item" href="{% url 'ledger:system_status' %}">
+        {% include "components/icon.html" with name="status" size="18" only %}
+        <span>system status</span>
+      </a>
+      <div class="wl-menu__separator" role="separator"></div>
+      <form method="post" action="{% url 'accounts:logout' %}">
+        {% csrf_token %}
+        <button
+          type="submit"
+          role="menuitem"
+          class="wl-menu__item wl-menu__item--destructive"
+          data-destructive="true"
+        >
+          {% include "components/icon.html" with name="lock" size="18" only %}
+          <span>lock</span>
+        </button>
+      </form>
+    </nav>
+  </div>
+</header>
+<section class="wl-actions">
+  {% include "components/action_card.html" with title="enter new" hint="one tap" icon="home" primary=True href="/enter/" attrs='data-primary-action="true"' only %}
+  {% include "components/action_card.html" with title="view past entries" hint="history and filters" icon="chevron-right" href="/history/" attrs='data-primary-action="true"' only %}
+</section>
+{% if setup_residence or setup_employer %}
+<section class="wl-callout wl-callout--warning" data-setup-callout>
+  <p class="wl-callout__title">finish your setup</p>
+  <ul class="wl-callout__list">
+    {% if setup_residence %}<li><a href="{% url 'travel:settings_locations' %}">add your residence</a></li>{% endif %}
+    {% if setup_employer %}<li><a href="{% url 'travel:settings_employer' %}">add your employer</a></li>{% endif %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

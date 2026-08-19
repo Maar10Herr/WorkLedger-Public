@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Entry · WorkLedger{% endblock %}
+{% block content %}
+<header class="wl-header">
+  <a class="wl-back" href="{% url 'ledger:history' %}">
+    {% include "components/icon.html" with name="arrow-left" size="16" only %}
+    <span>history</span>
+  </a>
+  <p class="wl-eyebrow">{{ summary.meta }}</p>
+  <h1 class="wl-title wl-break">{{ summary.title }}</h1>
+  {% if summary.badges %}
+  <div class="wl-badge-row">
+    {% for badge in summary.badges %}
+    <span class="wl-badge{% if badge.key == 'incomplete' or badge.key == 'receipt_missing' %} wl-badge--warning{% elif badge.key == 'reimbursed' %} wl-badge--green{% endif %}" data-badge-{{ badge.key }}="true">{{ badge.label }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</header>
+
+<section class="wl-section" data-detail-section="summary">
+  <dl class="wl-meta-list">
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">when</dt><dd class="wl-meta-row__value wl-break">{{ summary.meta }}</dd></div>
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">state</dt><dd class="wl-meta-row__value">{% if event.current_revision.complete %}complete{% else %}incomplete{% endif %}</dd></div>
+    {% if event.event_type == 'journey' and event.current_revision.snapshot.covered_by_pass %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">ticket</dt><dd class="wl-meta-row__value">covered by rail pass</dd></div>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="wl-section" data-detail-section="facts">
+  <h2 class="wl-section__title">{{ facts_heading }}</h2>
+  {% if facts %}
+  <dl class="wl-meta-list">
+    {% for row in facts %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">{{ row.label }}</dt><dd class="wl-meta-row__value wl-break">{{ row.value }}</dd></div>
+    {% endfor %}
+  </dl>
+  {% else %}
+  <p class="wl-empty">no recorded facts</p>
+  {% endif %}
+</section>
+
+<section class="wl-section" data-detail-section="attachments">
+  <h2 class="wl-section__title">attachments</h2>
+  {% if event.event_type == 'receipt_only' and event.current_revision.snapshot.reconciliation_status != 'matched' %}
+  <div class="wl-actions__row">
+    <a class="wl-btn wl-btn--primary" href="{% url 'evidence:receipt_inbox' %}?receipt={{ event.id }}">link receipt</a>
+  </div>
+  {% endif %}
+  {% for link in attachment_links %}
+  <div class="wl-callout">
+    <strong>{{ link.attachment.original_filename }}</strong> · {{ link.attachment.preview_status }}
+    <div class="wl-actions__row">
+      <a class="wl-link-btn" href="{% url 'evidence:attachment_download' link.attachment.id 'original' %}">download original</a>
+      {% if link.attachment.relative_preview_path %}
+      <a class="wl-link-btn" href="{% url 'evidence:attachment_download' link.attachment.id 'preview' %}">view preview</a>
+      {% endif %}
+    </div>
+    {% if link.attachment.preview_error %}<p class="wl-muted">{{ link.attachment.preview_error }}</p>{% endif %}
+  </div>
+  {% empty %}
+  <p class="wl-empty">no evidence linked</p>
+  {% endfor %}
+  {% if event.event_type == 'journey' or event.event_type == 'external_activity' or event.event_type == 'expense' and not attachment_links %}
+  <div class="wl-actions__row">
+    <a class="wl-btn wl-btn--secondary" href="{% url 'evidence:receipt_inbox' %}?{{ event.event_type }}={{ event.id }}">attach existing receipt</a>
+    <a class="wl-link-btn" href="{% url 'evidence:receipt_inbox' %}?{{ event.event_type }}={{ event.id }}">upload new receipt</a>
+  </div>
+  {% endif %}
+</section>
+
+{% if tax_result or per_diem or expense %}
+<section class="wl-section" data-detail-section="tax">
+  <h2 class="wl-section__title">tax treatment</h2>
+  <dl class="wl-meta-list">
+    {% if tax_result %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">classification</dt><dd class="wl-meta-row__value wl-break">{{ tax_classification }}</dd></div>
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">amount</dt><dd class="wl-meta-row__value">€{{ tax_result.amount|floatformat:2 }}</dd></div>
+    {% if tax_rule %}<div class="wl-meta-row"><dt class="wl-meta-row__label">rule</dt><dd class="wl-meta-row__value wl-break">{{ tax_rule }}</dd></div>{% endif %}
+    {% endif %}
+    {% if per_diem %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">meal per diem</dt><dd class="wl-meta-row__value">€{{ per_diem.total|floatformat:2 }}</dd></div>
+    {% endif %}
+    {% if expense and expense_tracks %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">tax deduction</dt><dd class="wl-meta-row__value">€{{ expense_tracks.tax_deduction|floatformat:2 }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if tax_result.missing_facts %}
+  <p class="wl-callout wl-callout--warning">needs {{ tax_result.missing_facts|join:", " }}</p>
+  {% endif %}
+  {% if per_diem.missing_facts %}
+  <p class="wl-callout wl-callout--warning">needs {{ per_diem.missing_facts|join:", " }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if expense or event.employer_reimbursable %}
+<section class="wl-section" data-detail-section="employer">
+  <h2 class="wl-section__title">employer reimbursement</h2>
+  {% if expense %}
+  <dl class="wl-meta-list">
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">state</dt><dd class="wl-meta-row__value">{{ expense.get_reimbursement_status_display|lower }}</dd></div>
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">reimbursed</dt><dd class="wl-meta-row__value">€{{ expense.reimbursed_amount|floatformat:2 }}</dd></div>
+    {% if expense_tracks %}
+    <div class="wl-meta-row"><dt class="wl-meta-row__label">employer claim</dt><dd class="wl-meta-row__value">€{{ expense_tracks.employer_claim|floatformat:2 }}</dd></div>
+    {% endif %}
+  </dl>
+  {% else %}
+  <p class="wl-muted">recorded for employer reimbursement</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="wl-section" data-detail-section="revisions">
+  <h2 class="wl-section__title">revision history</h2>
+  <form
+    method="post"
+    action="{% url 'ledger:correct_event' event.id %}"
+    class="wl-form wl-panel"
+    data-correction-form
+    x-data="correctionForm"
+  >
+    {% csrf_token %}
+    <p class="wl-section__subtitle">correct this entry — saved as a new revision</p>
+    <label class="wl-field">
+      <span class="wl-field__label">effective date and time</span>
+      <input type="datetime-local" name="effective_at" value="{{ event.current_revision.effective_at|date:'Y-m-d\TH:i' }}" class="wl-field__input">
+    </label>
+    {% for field in correction_fields %}
+      {% if field.kind == "location" %}
+      <label class="wl-field">
+        <span class="wl-field__label">{{ field.label }}</span>
+        <select
+          name="field_{{ field.key }}"
+          class="wl-field__input"
+          @change="setLocationNames($el{% if field.name_key %}, 'field_{{ field.name_key }}'{% endif %}{% if field.type_key %}, 'field_{{ field.type_key }}'{% endif %})"
+        >
+          <option value="">choose {{ field.label }}…</option>
+          {% for loc in field.options %}
+          <option value="{{ loc.pk }}" data-name="{{ loc.name }}"{% if field.type_key %} data-type="{{ loc.location_type }}"{% endif %}{% if field.value == loc.pk|stringformat:'s' %} selected{% endif %}>{{ loc.name }}{% if loc.locality %} · {{ loc.locality }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        {% if field.name_key %}<input type="hidden" name="field_{{ field.name_key }}" value="{{ field.name_value }}">{% endif %}
+        {% if field.type_key %}<input type="hidden" name="field_{{ field.type_key }}" value="{{ field.type_value }}">{% endif %}
+      </label>
+      {% elif field.kind == "readonly" %}
+      <label class="wl-field">
+        <span class="wl-field__label">{{ field.label }}</span>
+        <p class="wl-break wl-muted">{{ field.value|default:"—" }}</p>
+      </label>
+      {% elif field.is_boolean %}
+      <label class="wl-field wl-check">
+        <input type="checkbox" name="field_{{ field.key }}" {% if field.value %}checked{% endif %} class="size-5">
+        <span>{{ field.label }}</span>
+      </label>
+      {% else %}
+      <label class="wl-field">
+        <span class="wl-field__label">{{ field.label }}</span>
+        <input name="field_{{ field.key }}" value="{{ field.value|default_if_none:'' }}" class="wl-field__input wl-break">
+      </label>
+      {% endif %}
+    {% endfor %}
+    <fieldset class="wl-field">
+      <legend class="wl-field__label">status and tracks</legend>
+      <label class="wl-check"><input type="checkbox" name="complete" {% if event.current_revision.complete %}checked{% endif %}> complete</label>
+      <label class="wl-check"><input type="checkbox" name="tax_relevant" {% if event.tax_relevant %}checked{% endif %}> tax relevant</label>
+      <label class="wl-check"><input type="checkbox" name="employer_reimbursable" {% if event.employer_reimbursable %}checked{% endif %}> employer reimbursable</label>
+    </fieldset>
+    <label class="wl-field">
+      <span class="wl-field__label">correction reason</span>
+      <input name="correction_comment" required placeholder="why are you correcting this?" class="wl-field__input">
+    </label>
+    <button type="submit" class="wl-btn wl-btn--primary wl-btn--block">save correction as new revision</button>
+  </form>
+
+  <ol class="wl-timeline">
+    {% for item in revision_diffs reversed %}
+    <li class="wl-timeline__item" data-revision-item>
+      <div class="wl-timeline__head">
+        <strong>revision {{ item.revision.revision_number }}</strong>
+        <span class="wl-timeline__meta">{{ item.revision.recorded_at|date:"Y-m-d H:i" }} · {% if item.revision.comment %}{{ item.revision.comment }}{% else %}initial entry{% endif %}</span>
+      </div>
+      {% if item.changes %}
+      <ul class="wl-timeline__changes">
+        {% for change in item.changes %}
+        <li class="wl-timeline__change">
+          <span class="wl-timeline__field">{{ change.label }}</span>
+          <span class="wl-timeline__old wl-break">{{ change.old|default:"—" }}</span> →
+          <span class="wl-timeline__new wl-break">{{ change.new|default:"—" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section class="wl-section" data-detail-section="technical">
+  <details class="wl-disclosure" data-technical-details>
+    <summary class="wl-disclosure__summary">technical details</summary>
+    <div class="wl-disclosure__body">
+      <dl class="wl-meta-list">
+        <div class="wl-meta-row"><dt class="wl-meta-row__label">entry id</dt><dd class="wl-meta-row__value wl-break">{{ event.id }}</dd></div>
+        <div class="wl-meta-row"><dt class="wl-meta-row__label">current revision</dt><dd class="wl-meta-row__value wl-break">{{ event.current_revision.id }}</dd></div>
+        <div class="wl-meta-row"><dt class="wl-meta-row__label">audit hash</dt><dd class="wl-meta-row__value wl-break">{{ event.current_revision.audit_hash }}</dd></div>
+        <div class="wl-meta-row"><dt class="wl-meta-row__label">revisions</dt><dd class="wl-meta-row__value">{{ revision_count }}</dd></div>
+        {% if per_diem and per_diem.rule_codes %}
+        <div class="wl-meta-row"><dt class="wl-meta-row__label">per diem rule codes</dt><dd class="wl-meta-row__value wl-break">{{ per_diem.rule_codes|join:", " }}</dd></div>
+        {% endif %}
+      </dl>
+      <h3 class="wl-section__subtitle">stored snapshot</h3>
+      <pre class="wl-pre wl-break">{{ snapshot_json }}</pre>
+    </div>
+  </details>
+</section>
+{% endblock %}

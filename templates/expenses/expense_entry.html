@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Expense · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:enter' as enter_url %}
+{% url 'evidence:receipt_inbox' as receipt_url %}
+{% include "components/page_header.html" with back=enter_url back_label="enter new" title="expense" subtitle="record a cost for tax or reimbursement" only %}
+
+<nav class="wl-segmented" data-segment-nav aria-label="expense or receipt">
+  <span class="wl-segmented__item wl-segmented__item--active" data-segment-expense aria-current="true">expense</span>
+  <a class="wl-segmented__item" href="{{ receipt_url }}" data-segment-receipt>receipt only</a>
+</nav>
+
+<form
+  method="post"
+  enctype="multipart/form-data"
+  data-draft-key="expense-entry"
+  x-data="expenseForm()"
+  class="wl-form"
+>
+  {% csrf_token %}
+
+  <!-- category: grouped / recent / searchable bottom sheet -->
+  <section class="wl-section" aria-labelledby="category-heading">
+    <h2 id="category-heading" class="wl-section__title">category</h2>
+    <div class="wl-category-picker" x-data="categoryPicker()" data-category-picker>
+      <button
+        type="button"
+        class="wl-category-trigger"
+        data-category-trigger
+        x-ref="trigger"
+        @click="toggle()"
+        aria-haspopup="dialog"
+        :aria-expanded="open ? 'true' : 'false'"
+      >
+        <span class="wl-category-trigger__label" x-text="selectedLabel">choose category</span>
+        <span class="wl-category-trigger__hint">choose</span>
+      </button>
+
+      <div
+        class="wl-sheet"
+        x-show="open"
+        x-cloak
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-sheet-title"
+        data-category-sheet
+        @keydown.escape="close()"
+        @keydown.tab="trapFocus($event)"
+      >
+        <div class="wl-sheet__scrim" data-category-scrim @click="close()"></div>
+        <div class="wl-sheet__panel" x-ref="panel">
+          <h2 id="category-sheet-title" class="wl-sheet__title">category</h2>
+          <input
+            type="search"
+            class="wl-sheet__search"
+            placeholder="search categories"
+            x-model="query"
+            @input="filterOptions()"
+            @keydown.enter.prevent
+            x-ref="search"
+            data-category-search
+          >
+          <div class="wl-sheet__scroll">
+            {% if recent_categories %}
+            <section class="wl-sheet__group" data-category-recent>
+              <h3 class="wl-sheet__group-title">recent</h3>
+              <div class="wl-choice-list">
+                {% for category in recent_categories %}
+                <label class="wl-choice-option wl-category-option" data-category-option>
+                  <input
+                    type="radio"
+                    name="category"
+                    value="{{ category.code }}"
+                    x-model="categoryCode"
+                    @change="selectCategory($event.target)"
+                    data-category-name="{{ category.name|lower }}"
+                  >
+                  <span class="wl-choice-option__label">{{ category.name }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </section>
+            {% endif %}
+
+            {% for group in category_groups %}
+            <section class="wl-sheet__group" {% if group.parent %}data-category-group="{{ group.parent.code }}"{% endif %}>
+              {% if group.parent %}
+              <h3 class="wl-sheet__group-title">{{ group.parent.name }}</h3>
+              {% endif %}
+              <div class="wl-choice-list">
+                {% for category in group.categories %}
+                <label class="wl-choice-option wl-category-option" data-category-option>
+                  <input
+                    type="radio"
+                    name="category"
+                    value="{{ category.code }}"
+                    x-model="categoryCode"
+                    @change="selectCategory($event.target)"
+                    data-category-name="{{ category.name|lower }}"
+                  >
+                  <span class="wl-choice-option__label">{{ category.name }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </section>
+            {% endfor %}
+
+            <section class="wl-sheet__group" data-category-decide-later>
+              <div class="wl-choice-list">
+                <label class="wl-choice-option wl-category-option" data-category-option data-uncategorised>
+                  <input
+                    type="radio"
+                    name="category"
+                    value="other"
+                    x-model="categoryCode"
+                    @change="selectCategory($event.target)"
+                    data-category-name="uncategorised decide later"
+                  >
+                  <span class="wl-choice-option__label">uncategorised / decide later</span>
+                </label>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- what and how much -->
+  <section class="wl-section" aria-labelledby="what-heading">
+    <h2 id="what-heading" class="wl-section__title">what and how much</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">description</span>
+      <input class="wl-field__input" name="description" placeholder="e.g. client lunch" autocomplete="off">
+    </label>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">amount</span>
+        <input
+          class="wl-field__input"
+          name="amount"
+          inputmode="decimal"
+          autocomplete="off"
+          x-model="amount"
+          placeholder="0.00"
+        >
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">currency</span>
+        <input class="wl-field__input" name="currency" value="EUR" maxlength="3" autocomplete="off">
+      </label>
+    </div>
+    <label class="wl-field">
+      <span class="wl-field__label">date</span>
+      <input class="wl-field__input" type="date" name="invoice_or_receipt_date" value="{{ today_value }}">
+    </label>
+  </section>
+
+  <!-- receipt, optional -->
+  <section class="wl-section" aria-labelledby="receipt-heading">
+    <h2 id="receipt-heading" class="wl-section__title">receipt</h2>
+    <label class="wl-upload" data-expense-upload>
+      <span class="wl-upload__label">attach receipt, optional</span>
+      <input
+        type="file"
+        name="attachment"
+        accept="image/heic,image/heif,image/jpeg,image/png,image/webp,image/tiff,application/pdf"
+        class="wl-upload__input"
+      >
+    </label>
+    {% if unmatched_receipts %}
+    <label class="wl-field">
+      <span class="wl-field__label">or choose an unmatched receipt</span>
+      <select name="existing_receipt" class="wl-field__input">
+        <option value="">none</option>
+        {% for receipt in unmatched_receipts %}
+        <option value="{{ receipt.id }}">{{ receipt.current_revision.snapshot.display_name|default:"receipt" }} · {{ receipt.current_revision.effective_at|date:"d M" }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
+  </section>
+
+  <!-- record for: two independent output tracks -->
+  <section class="wl-section wl-record-for" data-record-for aria-labelledby="record-for-heading">
+    <h2 id="record-for-heading" class="wl-section__title">record for</h2>
+    <label class="wl-check" data-track-tax>
+      <input type="checkbox" class="wl-check__input" name="tax_relevant" x-model="taxRelevant">
+      <span class="wl-check__label">personal tax</span>
+    </label>
+    <label class="wl-check" data-track-employer>
+      <input type="checkbox" class="wl-check__input" name="employer_reimbursable" x-model="employerReimbursable">
+      <span class="wl-check__label">employer reimbursement</span>
+    </label>
+    <p class="wl-muted wl-dual-note" data-dual-track-note x-show="taxRelevant && employerReimbursable" x-cloak>
+      one event, two outputs; reimbursements are netted from the tax amount.
+    </p>
+  </section>
+
+  <!-- more details: everything optional, progressive disclosure -->
+  <button type="button" class="wl-link-btn" data-advanced-toggle @click="advancedOpen = !advancedOpen">
+    <span x-text="advancedOpen ? 'fewer details' : 'more details'">more details</span>
+  </button>
+  <section class="wl-mode-branch" data-advanced-section x-show="advancedOpen" x-cloak aria-labelledby="advanced-heading">
+    <h2 id="advanced-heading" class="wl-section__title">more details</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">merchant, optional</span>
+      <input class="wl-field__input" name="merchant" autocomplete="off">
+    </label>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">amount personally paid</span>
+        <input
+          class="wl-field__input"
+          name="amount_personally_paid"
+          inputmode="decimal"
+          placeholder="blank = full amount"
+          autocomplete="off"
+        >
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">already reimbursed</span>
+        <input
+          class="wl-field__input"
+          name="employer_reimbursement_amount"
+          inputmode="decimal"
+          placeholder="0.00"
+          autocomplete="off"
+        >
+      </label>
+    </div>
+    <label class="wl-check">
+      <input type="checkbox" class="wl-check__input" name="employer_paid">
+      <span class="wl-check__label">employer paid directly</span>
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">professional-use percentage</span>
+      <input
+        class="wl-field__input"
+        name="professional_use_percentage"
+        type="number"
+        min="0"
+        max="100"
+        step="0.01"
+        placeholder="blank if unknown"
+      >
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">business reason, optional</span>
+      <textarea class="wl-field__input" name="business_reason" rows="2"></textarea>
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">justification, optional</span>
+      <textarea class="wl-field__input" name="justification" rows="2"></textarea>
+    </label>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">payment date</span>
+        <input class="wl-field__input" type="date" name="payment_date">
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">payment method</span>
+        <input class="wl-field__input" name="payment_method" autocomplete="off">
+      </label>
+    </div>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">VAT amount</span>
+        <input class="wl-field__input" name="vat_amount" inputmode="decimal" autocomplete="off">
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">FX rate to EUR</span>
+        <input class="wl-field__input" name="exchange_rate" inputmode="decimal" value="1" autocomplete="off">
+      </label>
+    </div>
+    <label class="wl-field">
+      <span class="wl-field__label">reference, optional</span>
+      <input class="wl-field__input" name="reference" autocomplete="off">
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">supplier address, optional</span>
+      <textarea class="wl-field__input" name="supplier_address" rows="2"></textarea>
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">documentation status</span>
+      <select class="wl-field__input" name="documentation_status">
+        <option value="missing">documentation missing</option>
+        <option value="attached">documentation attached</option>
+        <option value="not_required">documentation not required</option>
+      </select>
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">note, optional</span>
+      <textarea class="wl-field__input" name="note" rows="3"></textarea>
+    </label>
+  </section>
+
+  <div class="wl-sticky-submit" data-sticky-submit>
+    <button type="submit" class="wl-btn wl-btn--primary" :disabled="!amount">save expense</button>
+    <button type="submit" class="wl-btn wl-btn--secondary" data-save-incomplete x-show="!amount" x-cloak>save incomplete</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% comment %}
+Status badge. Variants: green, warning (default is neutral).
+Usage:
+  {% include "components/badge.html" with label="tax" variant="green" only %}
+{% endcomment %}
+<span class="wl-badge{% if variant %} wl-badge--{{ variant }}{% endif %}">{{ label }}</span>

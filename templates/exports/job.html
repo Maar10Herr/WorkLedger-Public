@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Export status · WorkLedger{% endblock %}
+{% block content %}
+<header class="mb-6"><a href="{% url 'exports:create_export' %}">← exports</a><h1 class="mt-3 text-3xl font-semibold">export status</h1></header>
+<section {% if job.status == 'pending' or job.status == 'running' %}hx-get="{% url 'exports:export_job' job.id %}" hx-trigger="every 2s" hx-select="section" hx-swap="outerHTML"{% endif %} class="rounded-3xl bg-white p-5">
+<p class="font-semibold">{{ job.get_status_display }}</p><p class="text-sm text-stone-600">{{ job.range_start }}–{{ job.range_end }} · {{ job.kind }}</p>
+{% if job.artifact %}<a class="mt-4 inline-flex min-h-12 items-center rounded-xl bg-ledger-700 px-5 font-semibold text-white" href="{% url 'exports:download_export' job.artifact.id %}">download</a>{% elif job.error %}<pre class="mt-4 whitespace-pre-wrap text-sm text-red-700">{{ job.error }}</pre>{% endif %}
+</section>
+{% endblock %}

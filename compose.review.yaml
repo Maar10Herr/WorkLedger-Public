@@ -1,0 +1,7 @@
+services:
+  web:
+    ports:
+      - "0.0.0.0:${WORKLEDGER_REVIEW_PORT:-8788}:8000"
+    environment:
+      WORKLEDGER_ALLOWED_HOSTS: "localhost,127.0.0.1,${WORKLEDGER_REVIEW_HOST:?set WORKLEDGER_REVIEW_HOST to this Docker host's LAN or Tailscale IP}"
+      WORKLEDGER_CSRF_TRUSTED_ORIGINS: "http://${WORKLEDGER_REVIEW_HOST}:${WORKLEDGER_REVIEW_PORT:-8788}"

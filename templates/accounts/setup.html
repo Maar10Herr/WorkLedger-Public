@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block page_class %} wl-page--center{% endblock %}
+{% block title %}Set up · WorkLedger{% endblock %}
+{% block content %}
+<section class="wl-panel" aria-labelledby="setup-title">
+  <p class="wl-eyebrow">WorkLedger</p>
+  <h1 id="setup-title" class="wl-title">Create your private PIN</h1>
+  <p class="wl-subtitle">This is the only owner account. Choose at least four digits; a longer PIN is safer.</p>
+  <form
+    method="post"
+    class="wl-panel__form"
+    novalidate
+    x-data="wlFormState"
+  >
+    {% csrf_token %}
+    {% include "components/field.html" with id=form.pin.id_for_label name="pin" label="New PIN" type="password" pin=True helper="use at least four digits" attrs='inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="new-password" autofocus' errors=form.pin.errors only %}
+    {% include "components/field.html" with id=form.confirmation.id_for_label name="confirmation" label="Repeat PIN" type="password" pin=True attrs='inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="new-password"' errors=form.confirmation.errors only %}
+    <button
+      type="submit"
+      class="wl-btn wl-btn--primary wl-btn--block"
+      :disabled="submitting"
+    >
+      <span x-text="submitting ? 'creating…' : 'create owner PIN'"></span>
+    </button>
+  </form>
+</section>
+{% endblock %}

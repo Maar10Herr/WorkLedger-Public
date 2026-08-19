@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Unresolved · WorkLedger{% endblock %}
+{% block content %}
+<header class="wl-header">
+  <a class="wl-back" href="{% url 'home' %}">
+    {% include "components/icon.html" with name="arrow-left" size="16" only %}
+    <span>home</span>
+  </a>
+  <h1 class="wl-title">unresolved entries</h1>
+  <p class="wl-subtitle">saved safely, but missing facts needed for final output.</p>
+</header>
+
+{% for group in groups %}
+<section class="wl-unresolved-group" data-unresolved-group="{{ group.key }}">
+  <h2 class="wl-date-group">{{ group.label }}</h2>
+  {% for event, summary, fix_url in group.items %}
+  <div class="wl-event-card wl-unresolved-item" data-unresolved-item>
+    <span class="wl-event-card__title wl-break">{{ summary.title }}</span>
+    <span class="wl-event-card__meta">{{ summary.meta }}</span>
+    {% if summary.badges %}
+    <span class="wl-event-card__badges">
+      {% for badge in summary.badges %}
+      <span class="wl-badge{% if badge.key == 'incomplete' or badge.key == 'receipt_missing' %} wl-badge--warning{% endif %}" data-badge-{{ badge.key }}="true">{{ badge.label }}</span>
+      {% endfor %}
+    </span>
+    {% endif %}
+    <a class="wl-btn wl-btn--secondary" data-unresolved-fix href="{{ fix_url }}">fix: {{ group.label }}</a>
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+{% if hidden_incomplete_count %}
+<p class="wl-empty" data-hidden-incomplete="{{ hidden_incomplete_count }}">{{ hidden_incomplete_count }} more incomplete entr{{ hidden_incomplete_count|pluralize:"y,ies" }} need fixes on their detail pages — open them from history.</p>
+{% elif not groups %}
+<p class="wl-empty">everything is complete</p>
+{% endif %}
+{% endblock %}

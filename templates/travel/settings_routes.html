@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Commuting routes · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="commuting routes" subtitle="shortest usable one-way road distances for commuting." only %}
+
+{% if route_error %}
+<p class="wl-error" role="alert" data-route-error>{{ route_error }}</p>
+{% endif %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">confirmed routes</h2>
+  {% if confirmed_routes %}
+  <ul class="wl-record-list" data-routes-list>
+    {% for route in confirmed_routes %}
+    <li class="wl-record" data-route-record>
+      <span class="wl-record__title wl-break">{{ route.origin.name }} → {{ route.destination.name }}</span>
+      <span class="wl-record__meta">{{ route.distance_km }} km one-way</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no confirmed commuting routes yet</p>
+  {% endif %}
+</section>
+
+{% if candidates %}
+<section class="wl-section">
+  <h2 class="wl-section__title">candidates awaiting confirmation</h2>
+  {% for candidate in candidates %}
+  <div class="wl-callout wl-callout--warning" data-route-candidate>
+    <p class="wl-callout__title">{{ candidate.origin.name }} → {{ candidate.destination.name }} · {{ candidate.distance_km }} km</p>
+    <form method="post" class="wl-panel__form" data-route-confirm>
+      {% csrf_token %}
+      <input type="hidden" name="action" value="route_confirm">
+      <input type="hidden" name="candidate" value="{{ candidate.pk }}">
+      <div class="wl-field">
+        <label class="wl-field__label" for="route-{{ candidate.pk }}-distance">distance (optional correction)</label>
+        <input class="wl-field__input" id="route-{{ candidate.pk }}-distance" name="distance_km" type="number" min="0" step="0.01" placeholder="Optional corrected km">
+      </div>
+      <div class="wl-field">
+        <label class="wl-field__label" for="route-{{ candidate.pk }}-comment">{% if confirm_form and confirm_form.distance_km.value %}override reason, required{% else %}confirmation note, optional{% endif %}</label>
+        <input class="wl-field__input" id="route-{{ candidate.pk }}-comment" name="route_comment" value="{% if confirm_form %}{{ confirm_form.route_comment.value|default_if_none:'' }}{% endif %}" placeholder="Required if correcting the candidate">
+        {% if confirm_form and confirm_form.route_comment.errors %}<p class="wl-error" role="alert">{{ confirm_form.route_comment.errors.0 }}</p>{% endif %}
+      </div>
+      <button class="wl-btn wl-btn--primary wl-btn--block">confirm candidate</button>
+    </form>
+    <details class="wl-disclosure" data-technical-details>
+      <summary class="wl-disclosure__summary">provider details</summary>
+      <div class="wl-disclosure__body">
+        <dl class="wl-meta-list">
+          {% include "components/meta_row.html" with label="source" value=candidate.source only %}
+          {% include "components/meta_row.html" with label="provider url" value=candidate.source_url|default:"—" only %}
+          {% include "components/meta_row.html" with label="returned metres" value=candidate.returned_metres|default:"—" only %}
+          {% include "components/meta_row.html" with label="response hash" value=candidate.raw_response_hash|default:"—" only %}
+        </dl>
+      </div>
+    </details>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">add or update a route</h2>
+  <form method="post" class="wl-panel wl-panel__form" data-route-lookup>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="route_lookup">
+    <div class="wl-row">
+      <div class="wl-field">
+        <label class="wl-field__label" for="lookup-origin">origin</label>
+        <select class="wl-field__input" id="lookup-origin" name="origin" required>
+          <option value="">choose</option>
+          {% for location in locations %}
+          <option value="{{ location.id }}">{{ location.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="wl-field">
+        <label class="wl-field__label" for="lookup-destination">destination</label>
+        <select class="wl-field__input" id="lookup-destination" name="destination" required>
+          <option value="">choose</option>
+          {% for location in locations %}
+          <option value="{{ location.id }}">{{ location.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="wl-btn wl-btn--secondary wl-btn--block">calculate shortest road route</button>
+  </form>
+  <form method="post" class="wl-panel wl-panel__form" data-route-manual>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="route_manual">
+    <div class="wl-row">
+      <div class="wl-field">
+        <label class="wl-field__label" for="manual-origin">origin</label>
+        <select class="wl-field__input" id="manual-origin" name="origin" required>
+          <option value="">choose</option>
+          {% for location in locations %}
+          <option value="{{ location.id }}"{% if manual_form.origin.value|stringformat:"s" == location.id|stringformat:"s" %} selected{% endif %}>{{ location.name }}</option>
+          {% endfor %}
+        </select>
+        {% if manual_form.origin.errors %}<p class="wl-error" role="alert">{{ manual_form.origin.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="wl-field">
+        <label class="wl-field__label" for="manual-destination">destination</label>
+        <select class="wl-field__input" id="manual-destination" name="destination" required>
+          <option value="">choose</option>
+          {% for location in locations %}
+          <option value="{{ location.id }}"{% if manual_form.destination.value|stringformat:"s" == location.id|stringformat:"s" %} selected{% endif %}>{{ location.name }}</option>
+          {% endfor %}
+        </select>
+        {% if manual_form.destination.errors %}<p class="wl-error" role="alert">{{ manual_form.destination.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="wl-field">
+      <label class="wl-field__label" for="manual-distance">one-way km</label>
+      <input class="wl-field__input" id="manual-distance" name="distance_km" type="number" min="0" step="0.01" required value="{{ manual_form.distance_km.value|default_if_none:'' }}" placeholder="e.g. 141.00">
+      {% if manual_form.distance_km.errors %}<p class="wl-error" role="alert">{{ manual_form.distance_km.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="wl-field">
+      <label class="wl-field__label" for="manual-comment">{% if manual_form.route_requires_reason %}override reason, required{% else %}confirmation note, optional{% endif %}</label>
+      <input class="wl-field__input" id="manual-comment" name="route_comment" value="{{ manual_form.route_comment.value|default_if_none:'' }}" placeholder="Optional note">
+      {% if manual_form.route_comment.errors %}<p class="wl-error" role="alert">{{ manual_form.route_comment.errors.0 }}</p>{% endif %}
+    </div>
+    <button class="wl-btn wl-btn--primary wl-btn--block">confirm route</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use WorkLedger in research or a documented workflow, cite the versioned software release."
+title: "WorkLedger: A Self-Hosted Evidence Ledger"
+type: software
+version: 0.2.0
+date-released: 2026-08-19
+authors:
+  - family-names: Herrmann
+    given-names: Maarten Linus
+    orcid: "https://orcid.org/0009-0005-8721-6588"
+repository-code: "https://github.com/Maar10Herr/WorkLedger-Public"
+url: "https://github.com/Maar10Herr/WorkLedger-Public/releases"
+license: GPL-3.0-or-later
+abstract: >-
+  Single-owner, self-hosted evidence ledger for work locations, business
+  travel, expenses, receipts, tax-rule provenance, and employer reimbursement.
+keywords:
+  - evidence ledger
+  - self-hosted
+  - audit trail
+  - business travel
+  - receipts

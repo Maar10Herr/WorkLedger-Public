@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Employer packages · WorkLedger{% endblock %}
+{% block content %}
+{% url 'home' as home_url %}
+{% include "components/page_header.html" with back=home_url back_label="home" title="employer packages" subtitle="date-range claims you submit to your employer." only %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">create a package</h2>
+  <form method="post" class="wl-panel wl-panel__form">
+    {% csrf_token %}
+    <div class="wl-field">
+      <label class="wl-field__label" for="package-name">package name</label>
+      <input class="wl-field__input" id="package-name" name="name" required placeholder="e.g. August 2026">
+    </div>
+    <div class="wl-row">
+      <div class="wl-field">
+        <label class="wl-field__label" for="package-start">period from</label>
+        <input class="wl-field__input" id="package-start" type="date" name="period_start" required>
+      </div>
+      <div class="wl-field">
+        <label class="wl-field__label" for="package-end">period through</label>
+        <input class="wl-field__input" id="package-end" type="date" name="period_end" required>
+      </div>
+    </div>
+    <fieldset class="wl-section">
+      <legend class="wl-section__title">claim items</legend>
+      {% if candidates %}
+      {% for candidate in candidates %}
+      <label class="wl-check">
+        <input type="checkbox" name="event_ids" value="{{ candidate.event_id }}">
+        <span>
+          <span class="wl-record__title">{{ candidate.title }}</span>
+          <span class="wl-record__meta">{% if candidate.date %}{{ candidate.date|date:"Y-m-d" }} · {% endif %}{{ candidate.meta }}</span>
+        </span>
+      </label>
+      {% endfor %}
+      {% else %}
+      <p class="wl-empty">no employer-reimbursable events yet</p>
+      {% endif %}
+    </fieldset>
+    <button class="wl-btn wl-btn--primary wl-btn--block">create package</button>
+  </form>
+</section>
+
+<section class="wl-section">
+  <h2 class="wl-section__title">packages</h2>
+  {% if packages %}
+  <ul class="wl-record-list">
+    {% for package in packages %}
+    <li class="wl-record">
+      <a class="wl-record__title wl-break" href="{% url 'exports:package_detail' package.id %}">{{ package.name }}</a>
+      <span class="wl-record__meta">
+        {{ package.get_status_display }}{% if package.employer %} · {{ package.employer.name }}{% endif %} · {{ package.period_start|date:"Y-m-d" }} – {{ package.period_end|date:"Y-m-d" }}
+      </span>
+      <span class="wl-record__meta">{{ package.claim_amount }} {{ package.currency }}</span>
+    </li>
+    {% empty %}
+    <li class="wl-empty">no packages yet</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no packages yet</p>
+  {% endif %}
+</section>
+{% endblock %}

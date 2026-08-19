@@ -1,0 +1,31 @@
+{% comment %}
+Action card: compact tappable row with title, optional hint, optional icon.
+Usage:
+  {% include "components/action_card.html" with title="enter new" hint="one tap from anywhere" icon="home" primary=True href="/enter/" attrs='data-primary-action="true"' only %}
+  Inside a form, omit href and the partial renders a submit button.
+{% endcomment %}
+{% if href %}
+<a
+  {% if attrs %}{{ attrs }}{% endif %}
+  href="{{ href }}"
+  class="wl-action-card{% if primary %} wl-action-card--primary{% endif %}"
+>
+  <span class="wl-action-card__body">
+    <span class="wl-action-card__title">{{ title }}</span>
+    {% if hint %}<span class="wl-action-card__hint">{{ hint }}</span>{% endif %}
+  </span>
+  {% if icon %}{% include "components/icon.html" with name=icon size="22" only %}{% endif %}
+</a>
+{% else %}
+<button
+  type="{{ type|default:'submit' }}"
+  class="wl-action-card{% if primary %} wl-action-card--primary{% endif %}"
+  {% if attrs %}{{ attrs }}{% endif %}
+>
+  <span class="wl-action-card__body">
+    <span class="wl-action-card__title">{{ title }}</span>
+    {% if hint %}<span class="wl-action-card__hint">{{ hint }}</span>{% endif %}
+  </span>
+  {% if icon %}{% include "components/icon.html" with name=icon size="22" only %}{% endif %}
+</button>
+{% endif %}

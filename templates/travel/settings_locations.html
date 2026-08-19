@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Locations · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="locations" subtitle="saved places used by journeys and activities." only %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">saved locations</h2>
+  {% if locations %}
+  <ul class="wl-record-list" data-locations-list>
+    {% for location in locations %}
+    <li class="wl-record" data-location-record>
+      <span class="wl-record__title wl-break">{{ location.name }}</span>
+      <span class="wl-record__meta">
+        {{ location.get_location_type_display }}{% if location.locality %} · {{ location.locality }}{% endif %}{% if location.country_code %} · {{ location.country_code }}{% endif %}{% if location.station_name %} · {{ location.station_name }}{% endif %}
+      </span>
+      {% if location.address %}
+      <span class="wl-record__meta wl-break">{{ location.address }}</span>
+      {% endif %}
+      {% if location.is_default_residence or location.is_favourite %}
+      <span class="wl-record__badges">
+        {% if location.is_default_residence %}{% include "components/badge.html" with label="default" variant="green" only %}{% endif %}
+        {% if location.is_favourite %}{% include "components/badge.html" with label="favourite" only %}{% endif %}
+      </span>
+      {% endif %}
+      <details class="wl-disclosure" data-location-technical>
+        <summary class="wl-disclosure__summary">coordinates</summary>
+        <div class="wl-disclosure__body">
+          <dl class="wl-meta-list">
+            {% include "components/meta_row.html" with label="latitude" value=location.latitude|default:"—" only %}
+            {% include "components/meta_row.html" with label="longitude" value=location.longitude|default:"—" only %}
+          </dl>
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no saved locations yet</p>
+  {% endif %}
+</section>
+
+<section class="wl-section">
+  <details class="wl-disclosure" data-add-location {% if location_form_invalid %}open{% endif %}>
+    <summary class="wl-disclosure__summary">add a location</summary>
+    <div class="wl-disclosure__body">
+      <form method="post" class="wl-panel__form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="location">
+        <input type="hidden" name="next" value="{{ next|default:'' }}">
+        {% if location_form.non_field_errors %}
+        {% for error in location_form.non_field_errors %}
+        <p class="wl-error" role="alert" data-form-error>{{ error }}</p>
+        {% endfor %}
+        {% endif %}
+        <div class="wl-field">
+          <label class="wl-field__label" for="location-name">name</label>
+          {{ location_form.name }}
+          {% for error in location_form.name.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="wl-field">
+          <label class="wl-field__label" for="location-type">type</label>
+          {{ location_form.location_type }}
+          {% for error in location_form.location_type.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="wl-field">
+          <label class="wl-field__label" for="location-address">address</label>
+          {{ location_form.address }}
+          {% for error in location_form.address.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="wl-row">
+          <div class="wl-field">
+            <label class="wl-field__label" for="location-city">city / locality</label>
+            {{ location_form.locality }}
+            {% for error in location_form.locality.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="wl-field">
+            <label class="wl-field__label" for="location-country">country</label>
+            {{ location_form.country_code }}
+            {% for error in location_form.country_code.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+        <div class="wl-field">
+          <label class="wl-field__label" for="location-station">nearest station</label>
+          {{ location_form.station_name }}
+          {% for error in location_form.station_name.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <label class="wl-check">{{ location_form.is_favourite }}<span class="wl-check__label">favourite</span></label>
+        <label class="wl-check">{{ location_form.is_default_residence }}<span class="wl-check__label">default residence</span></label>
+        {% for error in location_form.is_default_residence.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        <details class="wl-disclosure" data-advanced-fields>
+          <summary class="wl-disclosure__summary">coordinates (optional)</summary>
+          <div class="wl-disclosure__body">
+            <div class="wl-row">
+              <div class="wl-field">
+                <label class="wl-field__label" for="location-lat">latitude</label>
+                {{ location_form.latitude }}
+                {% for error in location_form.latitude.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+              </div>
+              <div class="wl-field">
+                <label class="wl-field__label" for="location-lng">longitude</label>
+                {{ location_form.longitude }}
+                {% for error in location_form.longitude.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+              </div>
+            </div>
+          </div>
+        </details>
+        <button class="wl-btn wl-btn--primary wl-btn--block">save location</button>
+      </form>
+    </div>
+  </details>
+</section>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Saved · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:event_detail' event.id as event_detail_url %}
+{% url 'ledger:enter' as enter_url %}
+<section class="wl-panel" aria-labelledby="saved-title" data-draft-clear="{{ draft_key|default:'' }}">
+  <div class="wl-success">
+    <span class="wl-success__icon">
+      {% include "components/icon.html" with name="check" size="28" only %}
+    </span>
+    <h1 id="saved-title" class="wl-title">saved</h1>
+    <p class="wl-success__meta">
+      {% include "components/icon.html" with name="clock" size="14" only %}
+      saved at {{ event.current_revision.effective_at|date:"H:i" }}
+    </p>
+  </div>
+
+  {% if missing %}
+  <div class="wl-callout wl-callout--warning" role="status">
+    <p class="wl-callout__title">add when convenient</p>
+    <ul class="wl-callout__list">
+      {% for item in missing %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if per_diem %}
+  <div class="wl-callout wl-callout--green" role="status">
+    <p class="wl-callout__title">derived meal allowance</p>
+    <p class="wl-callout__amount">{{ per_diem.total }} EUR</p>
+  </div>
+  {% endif %}
+
+  <div class="wl-actions">
+    {% if event.event_type == "journey" %}
+      <div class="wl-actions__stack">
+        <form method="post" action="{% url 'travel:recent_journey_action' 'reverse' %}">
+          {% csrf_token %}
+          {% include "components/button.html" with label="reverse journey" icon="repeat" attrs='data-continuation="reverse"' only %}
+        </form>
+        <form method="post" action="{% url 'travel:recent_journey_action' 'repeat' %}">
+          {% csrf_token %}
+          {% include "components/button.html" with label="repeat journey" icon="repeat" attrs='data-continuation="repeat"' only %}
+        </form>
+        <a
+          class="wl-btn wl-btn--primary"
+          href="{% url 'travel:external_activity_entry' %}?journey={{ event.id }}"
+          data-continuation="activity"
+        >
+          {% include "components/icon.html" with name="plus" size="18" only %}
+          <span>add external activity / per diem</span>
+        </a>
+        <a
+          class="wl-btn wl-btn--secondary"
+          href="{% url 'evidence:receipt_inbox' %}?journey={{ event.id }}"
+          data-continuation="receipt"
+        >
+          {% include "components/icon.html" with name="receipt" size="18" only %}
+          <span>attach receipt</span>
+        </a>
+      </div>
+    {% endif %}
+
+    <div class="wl-actions__row">
+      <form method="post" action="{% url 'ledger:undo_event' event.id %}">
+        {% csrf_token %}
+        {% include "components/button.html" with label="undo" variant="destructive" icon="undo" only %}
+      </form>
+      {% include "components/button.html" with label="edit" href=event_detail_url icon="edit" only %}
+    </div>
+
+    {% include "components/button.html" with label="enter another" variant="primary" href=enter_url block=True only %}
+  </div>
+</section>
+{% endblock %}

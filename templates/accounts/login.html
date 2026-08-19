@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block page_class %} wl-page--center{% endblock %}
+{% block title %}Unlock · WorkLedger{% endblock %}
+{% block content %}
+<section class="wl-panel" aria-labelledby="login-title">
+  <p class="wl-eyebrow">WorkLedger</p>
+  <h1 id="login-title" class="wl-title">Enter your PIN</h1>
+  <form
+    method="post"
+    class="wl-panel__form"
+    novalidate
+    x-data="wlFormState"
+  >
+    {% csrf_token %}
+    {% include "components/field.html" with id=form.pin.id_for_label name="pin" label="PIN" type="password" pin=True attrs='inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="current-password" autofocus' only %}
+    {% if error %}
+      <p role="alert" class="wl-error">
+        {{ error }}{% if retry_after %} Try again in {{ retry_after }} seconds.{% endif %}
+      </p>
+    {% endif %}
+    <button
+      type="submit"
+      class="wl-btn wl-btn--primary wl-btn--block"
+      :disabled="submitting"
+    >
+      <span x-text="submitting ? 'unlocking…' : 'unlock'"></span>
+    </button>
+  </form>
+</section>
+{% endblock %}

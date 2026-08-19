@@ -1,0 +1,105 @@
+name: workledger
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    logging: *default-logging
+    image: postgres:18-trixie@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:?set APP_DATABASE_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/10-workledger-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [backend]
+
+  redis:
+    logging: *default-logging
+    image: redis:8.10.0-trixie@sha256:a7efd4ed5037dcfe1543c0e50b9f06293d3e88827005544bf37f381eea5f01cf
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  web:
+    logging: *default-logging
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      WORKLEDGER_DATA_PATH: /data
+      WORKLEDGER_BACKUP_PATH: /backups
+    command: ["web"]
+    ports:
+      - "127.0.0.1:${WORKLEDGER_PORT:-8787}:8000"
+    volumes:
+      - ${WORKLEDGER_DATA_DIR:-./workledger-data}:/data
+      - ${WORKLEDGER_BACKUP_DIR:-./workledger-backups}:/backups:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [backend, egress]
+
+  worker:
+    logging: *default-logging
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      WORKLEDGER_DATA_PATH: /data
+    command: ["worker"]
+    volumes:
+      - ${WORKLEDGER_DATA_DIR:-./workledger-data}:/data
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [backend, egress]
+
+  beat:
+    logging: *default-logging
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    command: ["celery", "-A", "config", "beat", "--schedule", "/data/celerybeat-schedule"]
+    volumes:
+      - ${WORKLEDGER_DATA_DIR:-./workledger-data}:/data
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [backend]
+
+volumes:
+  postgres-data:
+
+networks:
+  backend:
+    internal: true
+  egress: {}

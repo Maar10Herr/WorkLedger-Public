@@ -1,0 +1,18 @@
+{% comment %}
+Form field with label, input, optional helper, and errors.
+Usage:
+  {% include "components/field.html" with id=form.pin.id_for_label name="pin" label="PIN" type="password" pin=True attrs='inputmode="numeric" pattern="[0-9]*" minlength="4" autocomplete="current-password" autofocus' only %}
+{% endcomment %}
+<div class="wl-field">
+  {% if label %}<label class="wl-field__label" for="{{ id }}">{{ label }}</label>{% endif %}
+  <input
+    class="wl-field__input{% if pin %} wl-field__input--pin{% endif %}"
+    id="{{ id }}"
+    name="{{ name }}"
+    type="{{ type|default:'text' }}"
+    {% if value %}value="{{ value }}"{% endif %}
+    {% if attrs %}{{ attrs }}{% endif %}
+  >
+  {% if helper %}<p class="wl-field__helper">{{ helper }}</p>{% endif %}
+  {% for error in errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+</div>

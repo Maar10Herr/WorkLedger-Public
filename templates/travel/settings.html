@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Settings · WorkLedger{% endblock %}
+{% block content %}
+{% url 'home' as home_url %}
+{% url 'travel:settings_locations' as locations_url %}
+{% url 'travel:settings_employer' as employer_url %}
+{% url 'travel:settings_rail_passes' as rail_passes_url %}
+{% url 'travel:settings_routes' as routes_url %}
+{% url 'travel:settings_security' as security_url %}
+{% url 'travel:settings_defaults' as defaults_url %}
+{% include "components/page_header.html" with back=home_url back_label="home" eyebrow="WorkLedger" title="settings" subtitle="saved places, employer, rail passes, commuting routes, security, and defaults." only %}
+
+<section class="wl-section" data-settings-index>
+  {% include "components/action_card.html" with title="locations" hint="home, offices, client sites, favourites" icon="map-pin" href=locations_url attrs='data-settings-section="locations"' only %}
+  {% include "components/action_card.html" with title="employer" hint="the employer you currently work for" icon="briefcase" href=employer_url attrs='data-settings-section="employer"' only %}
+  {% include "components/action_card.html" with title="rail passes" hint="bahncards and other travel passes" icon="receipt" href=rail_passes_url attrs='data-settings-section="rail_passes"' only %}
+  {% include "components/action_card.html" with title="commuting routes" hint="one-way road distances for commuting" icon="repeat" href=routes_url attrs='data-settings-section="routes"' only %}
+  {% include "components/action_card.html" with title="security" hint="PIN, lockout, and lock" icon="lock" href=security_url attrs='data-settings-section="security"' only %}
+  {% include "components/action_card.html" with title="defaults" hint="currency, time zone, and output defaults" icon="settings" href=defaults_url attrs='data-settings-section="defaults"' only %}
+</section>
+{% endblock %}

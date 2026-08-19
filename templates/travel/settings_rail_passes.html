@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Rail passes · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="rail passes" subtitle="travel passes that cover train journeys." only %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">passes</h2>
+  {% if rail_passes %}
+  <ul class="wl-record-list" data-rail-passes-list>
+    {% for rail_pass in rail_passes %}
+    <li class="wl-record" data-rail-pass-record>
+      <span class="wl-record__title wl-break">{{ rail_pass.name }}</span>
+      <span class="wl-record__meta">
+        {{ rail_pass.pass_type }} · {{ rail_pass.valid_from|date:"Y-m-d" }} – {{ rail_pass.valid_to|date:"Y-m-d" }}{% if rail_pass.purchase_cost %} · {{ rail_pass.purchase_cost }} EUR{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no rail passes yet</p>
+  {% endif %}
+</section>
+
+<section class="wl-section">
+  <details class="wl-disclosure" data-add-rail-pass {% if rail_pass_form_invalid %}open{% endif %}>
+    <summary class="wl-disclosure__summary">add a rail pass</summary>
+    <div class="wl-disclosure__body">
+      <form method="post" class="wl-panel__form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="rail_pass">
+        {% if rail_pass_form.non_field_errors %}
+        {% for error in rail_pass_form.non_field_errors %}
+        <p class="wl-error" role="alert" data-form-error>{{ error }}</p>
+        {% endfor %}
+        {% endif %}
+        <div class="wl-field">
+          <label class="wl-field__label" for="pass-name">pass name</label>
+          {{ rail_pass_form.name }}
+          {% for error in rail_pass_form.name.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="wl-field">
+          <label class="wl-field__label" for="pass-type">type</label>
+          {{ rail_pass_form.pass_type }}
+          {% for error in rail_pass_form.pass_type.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="wl-row">
+          <div class="wl-field">
+            <label class="wl-field__label" for="pass-from">valid from</label>
+            {{ rail_pass_form.valid_from }}
+            {% for error in rail_pass_form.valid_from.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="wl-field">
+            <label class="wl-field__label" for="pass-to">valid to</label>
+            {{ rail_pass_form.valid_to }}
+            {% for error in rail_pass_form.valid_to.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+        <div class="wl-field">
+          <label class="wl-field__label" for="pass-cost">purchase cost (optional, EUR)</label>
+          {{ rail_pass_form.purchase_cost }}
+          {% for error in rail_pass_form.purchase_cost.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <button class="wl-btn wl-btn--primary wl-btn--block">save pass</button>
+      </form>
+    </div>
+  </details>
+</section>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% comment %}
+Compact metadata row: label on the left, value on the right.
+Usage:
+  {% include "components/meta_row.html" with label="saved at" value="14:32" only %}
+{% endcomment %}
+<div class="wl-meta-row">
+  <dt class="wl-meta-row__label">{{ label }}</dt>
+  <dd class="wl-meta-row__value">{{ value }}</dd>
+</div>

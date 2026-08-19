@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Enter new · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:journey_entry' as journey_entry_url %}
+{% url 'expenses:expense_entry' as expense_entry_url %}
+{% include "components/page_header.html" with back="/" title="enter new" only %}
+<section class="wl-actions">
+  <form method="post" action="{% url 'ledger:create_wfh' %}">
+    {% csrf_token %}
+    {% include "components/action_card.html" with title="work from home" hint="one tap" icon="home" primary=True attrs='data-entry-branch="true"' only %}
+  </form>
+  {% include "components/action_card.html" with title="travel / work elsewhere" hint="journeys, trains, taxis" icon="map-pin" href=journey_entry_url attrs='data-entry-branch="true"' only %}
+  {% include "components/action_card.html" with title="expense or receipt" hint="costs and evidence" icon="receipt" href=expense_entry_url attrs='data-entry-branch="true"' only %}
+</section>
+{% endblock %}

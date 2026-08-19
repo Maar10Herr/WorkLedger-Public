@@ -1,0 +1,30 @@
+{% if result.error %}<p class="wl-callout wl-callout--warning">{{ result.error }}</p>{% endif %}
+{% if signed_choices %}
+<fieldset class="wl-train-results__list">
+  <legend class="wl-section__subtitle">likely trains</legend>
+  {% for item in signed_choices %}
+  <label class="wl-train-row" data-train-row>
+    <input
+      type="radio"
+      name="train_choice_token"
+      value="{{ item.token }}"
+      @change="selectTrain($event.target)"
+      data-category="{{ item.choice.category }}"
+      data-number="{{ item.choice.number }}"
+      data-departure="{{ item.choice.scheduled_departure|date:'H:i' }}"
+      data-route="{{ item.choice.origin_station }} → {{ item.choice.destination_station }}"
+      {% if item.delay_minutes %}data-delay="{{ item.delay_minutes }}"{% endif %}
+    >
+    <span class="wl-train-row__body">
+      <span class="wl-train-row__line">
+        <strong>{{ item.choice.category }} {{ item.choice.number }}</strong>
+        · {{ item.choice.scheduled_departure|date:"H:i" }}
+        · {{ item.choice.origin_station }} → {{ item.choice.destination_station }}
+      </span>
+      {% if item.delay_minutes %}<span class="wl-badge wl-badge--warning">+{{ item.delay_minutes }} min</span>{% endif %}
+    </span>
+  </label>
+  {% endfor %}
+</fieldset>
+{% endif %}
+<p class="wl-muted wl-train-results__footnote">manual entry remains available</p>

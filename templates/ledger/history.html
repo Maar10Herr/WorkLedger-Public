@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}History · WorkLedger{% endblock %}
+{% block content %}
+<div x-data="filterSheet" @keydown.escape.window="open && close()">
+  <header class="wl-header">
+    <a class="wl-back" href="{% url 'home' %}">
+      {% include "components/icon.html" with name="arrow-left" size="16" only %}
+      <span>home</span>
+    </a>
+    <h1 class="wl-title">history</h1>
+  </header>
+
+  <form method="get" action="{% url 'ledger:history' %}" class="wl-history-toolbar" role="search">
+    <input
+      type="search"
+      name="q"
+      value="{{ filters.q }}"
+      placeholder="search entries"
+      aria-label="search entries"
+      class="wl-field__input"
+    >
+    <button
+      type="button"
+      class="wl-btn wl-btn--secondary"
+      data-filter-trigger
+      x-ref="trigger"
+      aria-haspopup="dialog"
+      :aria-expanded="open ? 'true' : 'false'"
+      aria-label="filter entries"
+      @click="toggle()"
+    >filters{% if active_filters %} · {{ active_filters|length }}{% endif %}</button>
+  </form>
+
+  {% if active_filters %}
+  <div class="wl-chips" aria-label="active filters">
+    {% for chip in active_filters %}
+    <a
+      class="wl-chip"
+      data-filter-chip
+      href="{{ chip.url }}"
+      aria-label="remove filter: {{ chip.label }}"
+    >{{ chip.label }} ×</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <section class="wl-history" aria-label="entries">
+    {% for group in groups %}
+    <h2 class="wl-date-group" data-event-date-group>{{ group.label }}</h2>
+    {% for event, summary in group.items %}
+    <a
+      href="{% url 'ledger:event_detail' event.id %}"
+      class="wl-event-card"
+      data-event-card="true"
+    >
+      <span class="wl-event-card__title">{{ summary.title }}</span>
+      <span class="wl-event-card__meta">{{ summary.meta }}</span>
+      {% if summary.badges %}
+      <span class="wl-event-card__badges">
+        {% for badge in summary.badges %}
+        <span
+          class="wl-badge{% if badge.key == 'incomplete' or badge.key == 'receipt_missing' %} wl-badge--warning{% elif badge.key == 'reimbursed' %} wl-badge--green{% endif %}"
+          data-badge-{{ badge.key }}="true"
+        >{{ badge.label }}</span>
+        {% endfor %}
+      </span>
+      {% endif %}
+    </a>
+    {% endfor %}
+    {% empty %}
+    <p class="wl-empty">no matching entries</p>
+    {% endfor %}
+  </section>
+
+  {% if next_url %}
+  <div class="wl-actions mt-6"><a class="wl-btn wl-btn--secondary" href="{{ next_url }}">load older entries</a></div>
+  {% endif %}
+
+  <section
+    class="wl-sheet"
+    data-filter-sheet="true"
+    x-show="open"
+    x-cloak
+    x-ref="panel"
+    role="dialog"
+    aria-modal="true"
+    aria-label="filter entries"
+    @click.outside="close()"
+    @keydown="trapFocus($event)"
+  >
+    <div class="wl-sheet__scrim" @click="close()"></div>
+    <div class="wl-sheet__panel">
+      <header class="wl-sheet__head">
+        <h2 class="wl-sheet__title">filters</h2>
+        <button type="button" class="wl-sheet__close" data-close @click="close()" aria-label="close filters">×</button>
+      </header>
+      <form method="get" action="{% url 'ledger:history' %}" class="wl-sheet__scroll">
+        <input type="hidden" name="q" value="{{ filters.q }}">
+        <label class="wl-field">
+          <span class="wl-field__label">date range</span>
+          <span class="wl-row">
+            <input type="date" name="start" value="{{ filters.start }}" class="wl-field__input" aria-label="from">
+            <input type="date" name="end" value="{{ filters.end }}" class="wl-field__input" aria-label="to">
+          </span>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">type of entry</span>
+          <select name="event_type" class="wl-field__input">
+            <option value="">all</option>
+            {% for value, label in event_type_options %}
+            <option value="{{ value }}"{% if filters.event_type == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">output track</span>
+          <select name="output_status" class="wl-field__input">
+            <option value="">all</option>
+            <option value="tax"{% if filters.output_status == 'tax' %} selected{% endif %}>tax</option>
+            <option value="employer"{% if filters.output_status == 'employer' %} selected{% endif %}>employer</option>
+            <option value="neither"{% if filters.output_status == 'neither' %} selected{% endif %}>neither</option>
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">reimbursement state</span>
+          <select name="reimbursement_status" class="wl-field__input">
+            <option value="">all</option>
+            {% for value, label in reimbursement_options %}
+            <option value="{{ value }}"{% if filters.reimbursement_status == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">receipt state</span>
+          <select name="reconciliation_status" class="wl-field__input">
+            <option value="">all</option>
+            <option value="unmatched"{% if filters.reconciliation_status == 'unmatched' %} selected{% endif %}>unmatched</option>
+            <option value="matched"{% if filters.reconciliation_status == 'matched' %} selected{% endif %}>matched</option>
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">completeness</span>
+          <select name="completeness" class="wl-field__input">
+            <option value="">all</option>
+            <option value="complete"{% if filters.completeness == 'complete' %} selected{% endif %}>complete</option>
+            <option value="incomplete"{% if filters.completeness == 'incomplete' %} selected{% endif %}>incomplete</option>
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">transport</span>
+          <select name="transport" class="wl-field__input">
+            <option value="">all</option>
+            {% for value, label in transport_options %}
+            <option value="{{ value }}"{% if filters.transport == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">location</span>
+          <input type="search" name="location" value="{{ filters.location }}" placeholder="town or place name" class="wl-field__input">
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">category</span>
+          <select name="category" class="wl-field__input">
+            <option value="">all</option>
+            {% for value, label in category_options %}
+            <option value="{{ value }}"{% if filters.category == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="wl-sheet__actions">
+          <a class="wl-link-btn" data-filter-clear href="{% url 'ledger:history' %}">clear all</a>
+          <button type="submit" class="wl-btn wl-btn--primary" data-filter-apply>apply</button>
+        </div>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

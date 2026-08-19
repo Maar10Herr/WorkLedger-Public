@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}External activity · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:enter' as enter_url %}
+{% include "components/page_header.html" with back=enter_url back_label="enter new" title="external activity" subtitle="linked to a journey — allowance is derived from versioned rules" only %}
+<form method="post" x-data="activityForm()" data-draft-key="external-activity" class="wl-form">
+  {% csrf_token %}
+  <input type="hidden" name="departure_context" value="{{ departure_context }}">
+  <input type="hidden" name="return_context" value="{{ return_context }}">
+
+  <!-- linked journey / legs -->
+  <section class="wl-section" data-activity-journey-link aria-labelledby="journey-link-heading">
+    <h2 id="journey-link-heading" class="wl-section__title">linked journey</h2>
+    {% if recent_journeys %}
+    <div class="wl-choice-list">
+      {% for journey in recent_journeys %}
+      <label class="wl-check wl-activity-leg">
+        <input type="checkbox" class="wl-check__input" name="journey_legs" value="{{ journey.id }}" {% if journey.id|stringformat:"s" in preselected_journey_ids %}checked{% endif %}>
+        <span class="wl-check__label">
+          {{ journey.current_revision.effective_at|date:"d M · H:i" }} ·
+          {{ journey.current_revision.snapshot.origin_name|default:"—" }} → {{ journey.current_revision.snapshot.destination_name|default:"—" }}
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="wl-muted">no recent journeys to link</p>
+    {% endif %}
+    {% if prefill_summary %}
+    <div class="wl-callout wl-callout--green" data-activity-prefill-summary>
+      <p class="wl-callout__title">linked journey</p>
+      <p class="wl-callout__note">{{ prefill_summary }} · departs {{ start_default|date:"H:i" }}</p>
+    </div>
+    {% else %}
+    <div class="wl-callout" data-activity-prefill-summary>
+      <p class="wl-callout__note">destination and times are prefilled from the linked journey when available</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- external destination -->
+  <section class="wl-section" aria-labelledby="activity-destination-heading">
+    <h2 id="activity-destination-heading" class="wl-section__title">external destination</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">destination</span>
+      <select class="wl-field__input" name="destination">
+        <option value="">not set yet</option>
+        {% for location in locations %}
+        <option value="{{ location.id }}" {% if location.id|stringformat:"s" == prefill_destination_id %}selected{% endif %}>{{ location.name }}{% if location.locality %} · {{ location.locality }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </section>
+
+  <!-- departure / return / still ongoing / overnight -->
+  <section class="wl-section" aria-labelledby="activity-when-heading">
+    <h2 id="activity-when-heading" class="wl-section__title">when</h2>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">departure</span>
+        <input class="wl-field__input" type="datetime-local" name="start_at" value="{{ start_default }}">
+      </label>
+      <label class="wl-field" x-show="!stillOngoing">
+        <span class="wl-field__label">return</span>
+        <input class="wl-field__input" type="datetime-local" name="end_at" value="{{ end_default }}" :disabled="stillOngoing">
+      </label>
+    </div>
+    <label class="wl-check" data-activity-still-ongoing>
+      <input type="checkbox" class="wl-check__input" name="still_ongoing" x-model="stillOngoing">
+      <span class="wl-check__label">still ongoing</span>
+    </label>
+    <label class="wl-check">
+      <input type="checkbox" class="wl-check__input" name="overnight">
+      <span class="wl-check__label">overnight stay</span>
+    </label>
+  </section>
+
+  <!-- compact allowance preview, computed server-side -->
+  <div class="wl-callout wl-callout--green" data-activity-allowance-summary>
+    <p class="wl-callout__title">allowance preview</p>
+    <p class="wl-callout__amount" x-show="!stillOngoing">potential domestic allowance: €{{ allowance_preview.total }}</p>
+    <p class="wl-callout__note" x-show="stillOngoing">add return time to calculate</p>
+  </div>
+
+  <!-- meals provided; co-payments appear only after a meal is selected -->
+  <details class="wl-disclosure" data-activity-meals>
+    <summary class="wl-disclosure__summary">meals provided</summary>
+    <div class="wl-disclosure__body">
+      <label class="wl-check">
+        <input type="checkbox" class="wl-check__input" name="breakfast" x-model="meals.breakfast">
+        <span class="wl-check__label">breakfast</span>
+      </label>
+      <label class="wl-check">
+        <input type="checkbox" class="wl-check__input" name="lunch" x-model="meals.lunch">
+        <span class="wl-check__label">lunch</span>
+      </label>
+      <label class="wl-check">
+        <input type="checkbox" class="wl-check__input" name="dinner" x-model="meals.dinner">
+        <span class="wl-check__label">dinner</span>
+      </label>
+      <div class="wl-field" x-show="meals.breakfast" x-cloak>
+        <label class="wl-field__label" for="breakfast_copayment">breakfast co-payment</label>
+        <input id="breakfast_copayment" class="wl-field__input" name="breakfast_copayment" inputmode="decimal">
+      </div>
+      <div class="wl-field" x-show="meals.lunch" x-cloak>
+        <label class="wl-field__label" for="lunch_copayment">lunch co-payment</label>
+        <input id="lunch_copayment" class="wl-field__input" name="lunch_copayment" inputmode="decimal">
+      </div>
+      <div class="wl-field" x-show="meals.dinner" x-cloak>
+        <label class="wl-field__label" for="dinner_copayment">dinner co-payment</label>
+        <input id="dinner_copayment" class="wl-field__input" name="dinner_copayment" inputmode="decimal">
+      </div>
+    </div>
+  </details>
+
+  <!-- employer payment -->
+  <details class="wl-disclosure" data-activity-employer-payment>
+    <summary class="wl-disclosure__summary">employer payment</summary>
+    <div class="wl-disclosure__body">
+      <label class="wl-field">
+        <span class="wl-field__label">employer per-diem reimbursement</span>
+        <input class="wl-field__input" name="employer_per_diem_reimbursement" inputmode="decimal" autocomplete="off">
+      </label>
+    </div>
+  </details>
+
+  <!-- work context -->
+  <details class="wl-disclosure" data-activity-work-context>
+    <summary class="wl-disclosure__summary">work context</summary>
+    <div class="wl-disclosure__body">
+      <div class="wl-field-grid">
+        <label class="wl-field">
+          <span class="wl-field__label">client</span>
+          <input class="wl-field__input" name="client" autocomplete="off">
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">project</span>
+          <input class="wl-field__input" name="project" autocomplete="off">
+        </label>
+      </div>
+      <label class="wl-field">
+        <span class="wl-field__label">activity</span>
+        <select class="wl-field__input" name="activity_type">
+          <option value="client_work">client work</option>
+          <option value="conference">conference</option>
+          <option value="training">training</option>
+          <option value="other">other</option>
+        </select>
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">purpose</span>
+        <input class="wl-field__input" name="purpose" autocomplete="off">
+      </label>
+    </div>
+  </details>
+
+  <!-- advanced tax facts: never a blocking required step -->
+  <details class="wl-disclosure" data-technical-details>
+    <summary class="wl-disclosure__summary">advanced tax facts</summary>
+    <div class="wl-disclosure__body">
+      <p class="wl-muted">same site for more than three months?</p>
+      <div class="wl-choice-list" role="radiogroup" aria-label="same site for more than three months">
+        <label class="wl-choice-option">
+          <input type="radio" name="three_month_limit" value="unsure" checked>
+          <span class="wl-choice-option__label">not sure</span>
+        </label>
+        <label class="wl-choice-option">
+          <input type="radio" name="three_month_limit" value="no">
+          <span class="wl-choice-option__label">no</span>
+        </label>
+        <label class="wl-choice-option">
+          <input type="radio" name="three_month_limit" value="yes">
+          <span class="wl-choice-option__label">yes</span>
+        </label>
+      </div>
+      <label class="wl-field">
+        <span class="wl-field__label">country</span>
+        <input class="wl-field__input" name="country_code" value="DE" maxlength="2" autocomplete="off">
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">manual tax classification note</span>
+        <input class="wl-field__input" name="tax_classification_note" autocomplete="off">
+      </label>
+    </div>
+  </details>
+
+  <!-- record for: two independent output tracks -->
+  <section class="wl-section wl-record-for" data-record-for aria-labelledby="activity-record-for-heading">
+    <h2 id="activity-record-for-heading" class="wl-section__title">record for</h2>
+    <label class="wl-check" data-track-tax>
+      <input type="checkbox" class="wl-check__input" name="tax_relevant" checked x-model="taxRelevant">
+      <span class="wl-check__label">personal tax</span>
+    </label>
+    <label class="wl-check" data-track-employer>
+      <input type="checkbox" class="wl-check__input" name="employer_reimbursable" x-model="employerReimbursable">
+      <span class="wl-check__label">employer reimbursement</span>
+    </label>
+    <p class="wl-muted wl-dual-note" data-dual-track-note x-show="taxRelevant && employerReimbursable" x-cloak>
+      one event, two outputs; reimbursements are netted from the tax amount.
+    </p>
+  </section>
+
+  <label class="wl-field">
+    <span class="wl-field__label">note, optional</span>
+    <textarea class="wl-field__input" name="note" rows="3"></textarea>
+  </label>
+
+  <div class="wl-sticky-submit" data-sticky-submit>
+    <button type="submit" class="wl-btn wl-btn--primary">save activity</button>
+  </div>
+</form>
+{% endblock %}

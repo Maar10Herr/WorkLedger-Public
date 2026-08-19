@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ package.name }} · WorkLedger{% endblock %}
+{% block content %}
+{% url 'exports:employer_packages' as packages_url %}
+{% include "components/page_header.html" with back=packages_url back_label="packages" title=package.name subtitle=package.get_status_display only %}
+
+<section class="wl-section">
+  <div class="wl-callout{% if package.status == 'submitted' or package.status == 'reimbursed' %} wl-callout--green{% endif %}">
+    <p class="wl-callout__title">{{ package.get_status_display }}</p>
+    <p class="wl-callout__note">{{ package.period_start|date:"Y-m-d" }} – {{ package.period_end|date:"Y-m-d" }}{% if package.employer %} · {{ package.employer.name }}{% endif %}</p>
+  </div>
+  <dl class="wl-meta-list">
+    {% include "components/meta_row.html" with label="total claim" value=package.claim_amount only %}
+    {% include "components/meta_row.html" with label="currency" value=package.currency only %}
+    {% if package.submitted_at %}{% include "components/meta_row.html" with label="submitted" value=package.submitted_at|date:"Y-m-d H:i" only %}{% endif %}
+    {% if package.resolved_at %}{% include "components/meta_row.html" with label="resolved" value=package.resolved_at|date:"Y-m-d H:i" only %}{% endif %}
+  </dl>
+</section>
+
+<section class="wl-section">
+  <h2 class="wl-section__title">included events</h2>
+  {% if event_rows %}
+  <ul class="wl-record-list">
+    {% for row in event_rows %}
+    <li class="wl-record">
+      <span class="wl-record__title wl-break">{{ row.title }}</span>
+      <span class="wl-record__meta">{% if row.date %}{{ row.date|date:"Y-m-d" }} · {% endif %}{{ row.meta }} · {{ row.claimed_amount }} {{ package.currency }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no events in this package</p>
+  {% endif %}
+</section>
+
+<section class="wl-section">
+  <h2 class="wl-section__title">actions</h2>
+  <form method="post" class="wl-panel wl-panel__form">
+    {% csrf_token %}
+    <div class="wl-field">
+      <label class="wl-field__label" for="status-note">status note</label>
+      <input class="wl-field__input" id="status-note" name="note" placeholder="Optional note for the status change">
+    </div>
+    <div class="wl-record__actions">
+      <button name="action" value="generate" class="wl-btn wl-btn--secondary">generate package</button>
+      {% if package.status == 'draft' %}
+      <button name="action" value="submitted" class="wl-btn wl-btn--primary">mark submitted</button>
+      {% elif package.status == 'submitted' %}
+      <button name="action" value="reimbursed" class="wl-btn wl-btn--primary">mark reimbursed</button>
+      <button name="action" value="rejected" class="wl-btn wl-btn--secondary">mark rejected</button>
+      {% elif package.status == 'rejected' %}
+      <button name="action" value="submitted" class="wl-btn wl-btn--primary">resubmit</button>
+      {% endif %}
+    </div>
+  </form>
+  {% if package.relative_package_path %}
+  <a class="wl-btn wl-btn--primary wl-btn--block" href="{% url 'exports:download_package' package.id %}">
+    {% include "components/icon.html" with name="download" size="18" only %}
+    <span>download ZIP</span>
+  </a>
+  <details class="wl-disclosure" data-technical-details>
+    <summary class="wl-disclosure__summary">technical details</summary>
+    <div class="wl-disclosure__body">
+      <dl class="wl-meta-list">
+        {% include "components/meta_row.html" with label="sha-256" value=package.package_sha256 only %}
+      </dl>
+    </div>
+  </details>
+  {% endif %}
+</section>
+
+{% if package.status_changes.all %}
+<section class="wl-section">
+  <h2 class="wl-section__title">status history</h2>
+  <ol class="wl-timeline">
+    {% for change in package.status_changes.all %}
+    <li class="wl-timeline__item">
+      <p class="wl-record__title">{{ change.get_from_status_display }} → {{ change.get_to_status_display }}</p>
+      <p class="wl-record__meta">{{ change.changed_at|date:"Y-m-d H:i" }}{% if change.note %} · {{ change.note }}{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

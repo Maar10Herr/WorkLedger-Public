@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Employer · WorkLedger{% endblock %}
+{% block content %}
+{% url 'travel:settings' as settings_url %}
+{% include "components/page_header.html" with back=settings_url back_label="settings" title="employer" subtitle="the employer you currently work for." only %}
+
+<section class="wl-section">
+  <h2 class="wl-section__title">employers</h2>
+  {% if employers %}
+  <ul class="wl-record-list" data-employers-list>
+    {% for employer in employers %}
+    <li class="wl-record" data-employer-record>
+      <span class="wl-record__title wl-break">{{ employer.name }}</span>
+      {% if employer.is_active %}
+      {% include "components/badge.html" with label="active" variant="green" only %}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="wl-empty">no employers yet</p>
+  {% endif %}
+</section>
+
+<section class="wl-section">
+  <details class="wl-disclosure" data-add-employer {% if employer_form_invalid %}open{% endif %}>
+    <summary class="wl-disclosure__summary">add or change employer</summary>
+    <div class="wl-disclosure__body">
+      <form method="post" class="wl-panel__form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="employer">
+        {% if employer_form.non_field_errors %}
+        {% for error in employer_form.non_field_errors %}
+        <p class="wl-error" role="alert" data-form-error>{{ error }}</p>
+        {% endfor %}
+        {% endif %}
+        <div class="wl-field">
+          <label class="wl-field__label" for="employer-name">employer name</label>
+          {{ employer_form.name }}
+          {% for error in employer_form.name.errors %}<p class="wl-field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+        <button class="wl-btn wl-btn--primary wl-btn--block">set active employer</button>
+      </form>
+    </div>
+  </details>
+</section>
+{% endblock %}

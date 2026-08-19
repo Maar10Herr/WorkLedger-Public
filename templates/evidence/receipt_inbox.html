@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Receipt · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:enter' as enter_url %}
+{% url 'expenses:expense_entry' as expense_url %}
+{% include "components/page_header.html" with back=enter_url back_label="enter new" title="receipt only" subtitle="attach evidence; link it to an expense or journey now or later" only %}
+
+<nav class="wl-segmented" data-segment-nav aria-label="expense or receipt">
+  <a class="wl-segmented__item" href="{{ expense_url }}" data-segment-expense>expense</a>
+  <span class="wl-segmented__item wl-segmented__item--active" data-segment-receipt aria-current="true">receipt only</span>
+</nav>
+
+<form
+  method="post"
+  enctype="multipart/form-data"
+  data-draft-key="receipt-inbox"
+  x-data="receiptForm()"
+  class="wl-form"
+>
+  {% csrf_token %}
+
+  {% if preselected_target %}
+  <input type="hidden" name="target_event" value="{{ preselected_target.id }}">
+  <div class="wl-callout wl-callout--green" data-receipt-target-summary>
+    <p class="wl-callout__title">will link to {{ preselected_target_summary.label }}</p>
+    {% if preselected_target_summary.meta %}
+    <p class="wl-callout__note">{{ preselected_target_summary.meta }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <section class="wl-section" aria-labelledby="receipt-file-heading">
+    <h2 id="receipt-file-heading" class="wl-section__title">photo or file</h2>
+    <div data-receipt-preview>
+      <label class="wl-upload">
+        <span class="wl-upload__label">choose photo or file</span>
+        <input
+          type="file"
+          name="attachment"
+          accept="image/heic,image/heif,image/jpeg,image/png,image/webp,image/tiff,application/pdf"
+          class="wl-upload__input"
+          data-receipt-input
+          @change="onFileChange($event.target)"
+        >
+      </label>
+      <div class="wl-file-preview" x-show="fileName" x-cloak>
+        <img
+          class="wl-file-preview__image"
+          x-show="previewUrl"
+          x-cloak
+          :src="previewUrl"
+          alt="receipt preview"
+        >
+        <p class="wl-file-preview__meta">
+          <span x-text="fileName"></span>
+          <span x-show="fileSize" x-text="' · ' + fileSize"></span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <label class="wl-field">
+    <span class="wl-field__label">name, optional</span>
+    <input class="wl-field__input" name="name" maxlength="120" placeholder="e.g. desk">
+  </label>
+
+  <label class="wl-field">
+    <span class="wl-field__label">note, optional</span>
+    <textarea class="wl-field__input" name="note" rows="3" placeholder="what is this receipt for?"></textarea>
+  </label>
+
+  <section class="wl-section wl-record-for" data-record-for aria-labelledby="record-for-heading">
+    <h2 id="record-for-heading" class="wl-section__title">record for</h2>
+    <label class="wl-check" data-track-tax>
+      <input type="checkbox" class="wl-check__input" name="tax_relevant" x-model="taxRelevant">
+      <span class="wl-check__label">personal tax</span>
+    </label>
+    <label class="wl-check" data-track-employer>
+      <input type="checkbox" class="wl-check__input" name="employer_reimbursable" x-model="employerReimbursable">
+      <span class="wl-check__label">employer reimbursement</span>
+    </label>
+    <p class="wl-muted wl-dual-note" data-dual-track-note x-show="taxRelevant && employerReimbursable" x-cloak>
+      one event, two outputs; reimbursements are netted from the tax amount.
+    </p>
+  </section>
+
+  <div class="wl-sticky-submit" data-sticky-submit>
+    <button type="submit" class="wl-btn wl-btn--primary">save to receipt inbox</button>
+  </div>
+</form>
+
+{% if receipts %}
+<section class="wl-section mt-8" aria-labelledby="unmatched-heading">
+  <h2 id="unmatched-heading" class="wl-section__title">unmatched receipts</h2>
+  {% for receipt in receipts %}
+  <form
+    method="post"
+    action="{% url 'evidence:reconcile_receipt' receipt.id %}"
+    class="wl-mode-branch"
+  >
+    {% csrf_token %}
+    <p class="wl-muted">
+      <strong>{{ receipt.current_revision.snapshot.display_name|default:"receipt" }}</strong>
+      · {{ receipt.current_revision.snapshot.original_filename }}
+      · {{ receipt.current_revision.effective_at|date:"d M · H:i" }}
+    </p>
+    <label class="wl-field">
+      <span class="wl-field__label">link to</span>
+      <select class="wl-field__input" name="target_event" required>
+        <option value="">choose an event</option>
+        {% for event in target_events %}
+        <option value="{{ event.id }}" {% if preselected_target and event.id == preselected_target.id %}selected{% endif %}>
+          {{ event.current_revision.effective_at|date:"d M" }} ·
+          {% if event.event_type == "expense" %}
+            expense
+          {% elif event.event_type == "journey" %}
+            journey
+          {% elif event.event_type == "external_activity" %}
+            external activity
+          {% else %}
+            {{ event.event_type }}
+          {% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="wl-btn wl-btn--secondary">link receipt</button>
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

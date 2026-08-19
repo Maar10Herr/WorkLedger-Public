@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block title %}Journey · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:enter' as enter_url %}
+{% include "components/page_header.html" with back=enter_url back_label="enter new" title="travel / work elsewhere" subtitle="where are you going, and how?" only %}
+
+{% if latest_journey %}
+<section class="wl-recent-actions" aria-label="recent journey">
+  <form method="post" action="{% url 'travel:recent_journey_action' 'reverse' %}">
+    {% csrf_token %}
+    {% include "components/button.html" with label="reverse last journey" variant="secondary" only %}
+  </form>
+  <form method="post" action="{% url 'travel:recent_journey_action' 'repeat' %}">
+    {% csrf_token %}
+    {% include "components/button.html" with label="repeat recent journey" variant="secondary" only %}
+  </form>
+</section>
+{% endif %}
+
+<form
+  method="post"
+  data-draft-key="journey-entry"
+  data-initial-destination="{{ preselected_destination_id|default:'' }}"
+  x-data="journeyForm()"
+  class="wl-form"
+>
+  {% csrf_token %}
+  <input type="hidden" name="track_fields_present" value="1">
+
+  <!-- effective time: compact until the user chooses to change it -->
+  <div class="wl-summary-row" data-time-summary>
+    <p class="wl-summary-row__text">
+      <span class="wl-summary-row__value" data-date-label x-text="dateLabel">today</span> · <span class="wl-summary-row__value" data-time-value x-text="timeValue">{{ now_local|date:"H:i" }}</span>
+    </p>
+    <button type="button" class="wl-link-btn" data-time-change @click="timePickerOpen = !timePickerOpen">
+      change
+    </button>
+  </div>
+  <div class="wl-summary-row__panel" x-show="timePickerOpen" x-cloak>
+    <label class="wl-field">
+      <span class="wl-field__label">effective date and time</span>
+      <input
+        class="wl-field__input"
+        type="datetime-local"
+        name="effective_at"
+        value="{{ now_local_value }}"
+        @change="onTimeChange($event.target)"
+      >
+    </label>
+  </div>
+
+  <!-- origin: inferred and visible, change reveals a compact picker -->
+  <div class="wl-summary-row" data-origin-summary>
+    <p class="wl-summary-row__text">
+      from:
+      <span class="wl-summary-row__value" data-origin-name x-text="originName">{{ inferred_origin.name|default:"unknown" }}</span><span data-origin-locality x-text="originLocality ? ', ' + originLocality : ''">{% if inferred_origin.locality %}, {{ inferred_origin.locality }}{% endif %}</span>
+    </p>
+    <button type="button" class="wl-link-btn" data-origin-change @click="originPickerOpen = !originPickerOpen">
+      change
+    </button>
+  </div>
+  <div class="wl-summary-row__panel" x-show="originPickerOpen" x-cloak>
+    <p class="wl-section__subtitle">origin</p>
+    <div class="wl-choice-list">
+      <label class="wl-choice-option">
+        <input
+          type="radio"
+          name="origin"
+          value=""
+          checked
+          x-model="originId"
+          @change="onOriginChange($event.target)"
+          data-name="{{ inferred_origin.name|default:'auto' }}"
+          data-locality="{{ inferred_origin.locality|default:'' }}"
+          data-station="{{ inferred_origin.station_name|default:'' }}"
+        >
+        <span class="wl-choice-option__label">auto · {{ inferred_origin.name|default:"unknown" }}</span>
+      </label>
+      {% for location in locations %}
+      <label class="wl-choice-option">
+        <input
+          type="radio"
+          name="origin"
+          value="{{ location.id }}"
+          x-model="originId"
+          @change="onOriginChange($event.target)"
+          data-name="{{ location.name }}"
+          data-locality="{{ location.locality }}"
+          data-station="{{ location.station_name }}"
+        >
+        <span class="wl-choice-option__label">{{ location.name }}{% if location.locality %} · {{ location.locality }}{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- destination: favourites / recent / other -->
+  <section class="wl-section" aria-labelledby="destination-heading">
+    <h2 id="destination-heading" class="wl-section__title">where are you going?</h2>
+
+    {% if favourite_options %}
+    <section class="wl-destination-group" data-destination-group="favourites" aria-label="favourite locations">
+      <h3 class="wl-section__subtitle">favourites</h3>
+      <div class="wl-choice-list">
+        {% for option in favourite_options %}
+        <label class="wl-choice-option wl-destination-option">
+          <input
+            type="radio"
+            name="destination"
+            value="{{ option.location.id }}"
+            x-model="destinationId"
+            @change="onDestinationChange($event.target)"
+            data-station="{{ option.location.station_name }}"
+            data-route-km="{{ option.route_km|default:'' }}"
+            {% if preselected_destination_id == option.location.id|stringformat:"s" %}checked{% endif %}
+          >
+          <span class="wl-choice-option__label">
+            <span class="wl-destination-option__name">{{ option.location.name }}</span>
+            <span class="wl-destination-option__meta">{{ option.location.get_location_type_display }}{% if option.location.locality %} · {{ option.location.locality }}{% endif %}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if recent_options %}
+    <section class="wl-destination-group" data-destination-group="recent" aria-label="recent destinations">
+      <h3 class="wl-section__subtitle">recent</h3>
+      <div class="wl-choice-list">
+        {% for option in recent_options %}
+        <label class="wl-choice-option wl-destination-option">
+          <input
+            type="radio"
+            name="destination"
+            value="{{ option.location.id }}"
+            x-model="destinationId"
+            @change="onDestinationChange($event.target)"
+            data-station="{{ option.location.station_name }}"
+            data-route-km="{{ option.route_km|default:'' }}"
+            {% if preselected_destination_id == option.location.id|stringformat:"s" %}checked{% endif %}
+          >
+          <span class="wl-choice-option__label">
+            <span class="wl-destination-option__name">{{ option.location.name }}</span>
+            <span class="wl-destination-option__meta">{{ option.location.get_location_type_display }}{% if option.location.locality %} · {{ option.location.locality }}{% endif %}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="wl-destination-group" data-destination-group="other" aria-label="other locations">
+      <details class="wl-disclosure" {% if preselected_in_other %}open{% endif %}>
+        <summary class="wl-disclosure__summary">other location</summary>
+        <div class="wl-disclosure__body">
+          <div class="wl-choice-list">
+            {% for option in other_options %}
+            <label class="wl-choice-option wl-destination-option">
+              <input
+                type="radio"
+                name="destination"
+                value="{{ option.location.id }}"
+                x-model="destinationId"
+                @change="onDestinationChange($event.target)"
+                data-station="{{ option.location.station_name }}"
+                data-route-km="{{ option.route_km|default:'' }}"
+                {% if preselected_destination_id == option.location.id|stringformat:"s" %}checked{% endif %}
+              >
+              <span class="wl-choice-option__label">
+                <span class="wl-destination-option__name">{{ option.location.name }}</span>
+                <span class="wl-destination-option__meta">{{ option.location.get_location_type_display }}{% if option.location.locality %} · {{ option.location.locality }}{% endif %}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <a class="wl-link-btn" href="{% url 'travel:settings_locations' %}?next={{ add_location_next }}">add location</a>
+  </section>
+
+  <!-- transport: compact button grid, recent mode remembered -->
+  <section class="wl-section" aria-labelledby="transport-heading">
+    <h2 id="transport-heading" class="wl-section__title">how are you travelling?</h2>
+    <div class="wl-transport-grid" data-transport-grid role="radiogroup" aria-label="transport mode">
+      {% for value, label in transport_modes %}
+      {% if value in primary_transport_modes %}
+      <label class="wl-choice-option wl-transport-option" data-transport-option>
+        <input type="radio" name="transport_mode" value="{{ value }}" x-model="transportMode">
+        <span class="wl-choice-option__label">{{ label }}</span>
+      </label>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <div class="wl-transport-grid wl-transport-grid--more" x-show="transportMore" x-cloak>
+      {% for value, label in transport_modes %}
+      {% if value not in primary_transport_modes %}
+      <label class="wl-choice-option wl-transport-option" data-transport-option>
+        <input type="radio" name="transport_mode" value="{{ value }}" x-model="transportMode">
+        <span class="wl-choice-option__label">{{ label }}</span>
+      </label>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <button type="button" class="wl-link-btn" @click="transportMore = !transportMore">
+      <span x-text="transportMore ? 'fewer options' : 'more options'">more options</span>
+    </button>
+  </section>
+
+  <!-- train branch: only train-relevant facts up front -->
+  <section class="wl-mode-branch" x-cloak x-show="transportMode === 'train'" data-train-default>
+    <h2 class="wl-section__title">train</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">origin station</span>
+      <input class="wl-field__input" name="origin_station" value="{{ origin_station_default }}" x-model="originStation" autocomplete="off">
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">destination station</span>
+      <input class="wl-field__input" name="destination_station" x-model="destinationStation" autocomplete="off">
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">departure time</span>
+      <input class="wl-field__input" type="datetime-local" name="scheduled_departure" value="{{ now_local_value }}">
+    </label>
+    <button
+      type="button"
+      class="wl-btn wl-btn--secondary"
+      hx-post="{% url 'travel:train_lookup' %}"
+      hx-include="closest form"
+      hx-target="#train-choices"
+      hx-swap="innerHTML"
+    >
+      find trains
+    </button>
+    <div id="train-choices" class="wl-train-results" data-train-result aria-live="polite"></div>
+
+    <div class="wl-train-selected" data-selected-train x-show="selectedTrain" x-cloak>
+      <p class="wl-callout wl-callout--green">
+        <strong x-text="selectedTrain ? selectedTrain.category + ' ' + selectedTrain.number : ''"></strong>
+        · <span x-text="selectedTrain ? selectedTrain.departure : ''"></span>
+        · <span x-text="selectedTrain ? selectedTrain.route : ''"></span>
+      </p>
+    </div>
+
+    <div class="wl-rail-pass" data-rail-pass-section>
+      {% if auto_selected_pass %}
+      <div class="wl-summary-row" data-rail-pass-summary :data-covered="coveredByPass ? 'true' : 'false'">
+        <p class="wl-summary-row__text">
+          <span class="wl-badge wl-badge--green">
+            <span data-pass-name x-text="activePassName">{{ auto_selected_pass.name|lower }}</span>
+            · <span x-text="coveredByPass ? 'covered' : 'not covered'">covered</span>
+          </span>
+        </p>
+        <button type="button" class="wl-link-btn" data-pass-change @click="passPickerOpen = !passPickerOpen">
+          change
+        </button>
+      </div>
+      <div class="wl-choice-list" x-show="passPickerOpen" x-cloak role="radiogroup" aria-label="rail pass">
+        <label class="wl-choice-option">
+          <input type="radio" name="rail_pass" value="{{ auto_selected_pass.id }}" checked @change="onPassChange($event.target)" data-name="{{ auto_selected_pass.name|lower }}">
+          <span class="wl-choice-option__label">{{ auto_selected_pass.name }}</span>
+        </label>
+        {% for rail_pass in other_active_passes %}
+        <label class="wl-choice-option">
+          <input type="radio" name="rail_pass" value="{{ rail_pass.id }}" @change="onPassChange($event.target)" data-name="{{ rail_pass.name|lower }}">
+          <span class="wl-choice-option__label">{{ rail_pass.name }}</span>
+        </label>
+        {% endfor %}
+        <label class="wl-choice-option">
+          <input type="radio" name="rail_pass" value="none" @change="onPassChange($event.target)" data-name="">
+          <span class="wl-choice-option__label">no pass</span>
+        </label>
+      </div>
+      {% elif active_rail_passes %}
+      <div class="wl-rail-pass__pick" data-rail-pass-summary data-covered="false">
+        <p class="wl-section__subtitle">rail pass</p>
+        <div class="wl-choice-list" role="radiogroup" aria-label="rail pass">
+          {% for rail_pass in active_rail_passes %}
+          <label class="wl-choice-option">
+            <input type="radio" name="rail_pass" value="{{ rail_pass.id }}" @change="onPassChange($event.target)" data-name="{{ rail_pass.name|lower }}">
+            <span class="wl-choice-option__label">{{ rail_pass.name }}</span>
+          </label>
+          {% endfor %}
+          <label class="wl-choice-option">
+            <input type="radio" name="rail_pass" value="none" @change="onPassChange($event.target)" data-name="">
+            <span class="wl-choice-option__label">no pass</span>
+          </label>
+        </div>
+      </div>
+      {% else %}
+      <p class="wl-muted" data-rail-pass-summary data-covered="false">no active rail pass</p>
+      {% endif %}
+    </div>
+
+    <details class="wl-disclosure" data-train-manual>
+      <summary class="wl-disclosure__summary" data-train-toggle>enter train manually</summary>
+      <div class="wl-disclosure__body">
+        <div class="wl-field-grid">
+          <label class="wl-field">
+            <span class="wl-field__label">category</span>
+            <input class="wl-field__input" name="train_category" placeholder="ICE" autocomplete="off">
+          </label>
+          <label class="wl-field">
+            <span class="wl-field__label">number</span>
+            <input class="wl-field__input" name="train_number" placeholder="78" inputmode="numeric" autocomplete="off">
+          </label>
+        </div>
+        <label class="wl-field">
+          <span class="wl-field__label">scheduled arrival</span>
+          <input class="wl-field__input" type="datetime-local" name="scheduled_arrival">
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">operator, optional</span>
+          <input class="wl-field__input" name="train_operator" autocomplete="off">
+        </label>
+      </div>
+    </details>
+
+    <details class="wl-disclosure" data-cost-section>
+      <summary class="wl-disclosure__summary" data-cost-toggle>cost and employer</summary>
+      <div class="wl-disclosure__body">
+        <label class="wl-field" x-show="!coveredByPass" x-cloak>
+          <span class="wl-field__label">ticket cost</span>
+          <input class="wl-field__input" name="ticket_cost" inputmode="decimal" autocomplete="off">
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">tax-free employer reimbursement</span>
+          <input class="wl-field__input" name="reimbursed_amount" inputmode="decimal" autocomplete="off">
+        </label>
+        <label class="wl-check">
+          <input type="checkbox" class="wl-check__input" name="employer_paid">
+          <span class="wl-check__label">employer paid ticket directly</span>
+        </label>
+        <label class="wl-field">
+          <span class="wl-field__label">payer description, optional</span>
+          <input class="wl-field__input" name="payer_description" autocomplete="off">
+        </label>
+      </div>
+    </details>
+  </section>
+
+  <!-- private car branch -->
+  <section class="wl-mode-branch" x-cloak x-show="transportMode === 'private_car'" data-car-branch>
+    <h2 class="wl-section__title">private car</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">actual kilometres, optional</span>
+      <input class="wl-field__input" name="actual_kilometres" inputmode="decimal" autocomplete="off">
+    </label>
+    <p class="wl-muted" x-show="destinationId && carRouteSummary" x-cloak>
+      confirmed route · <span x-text="carRouteSummary">distance available once a destination is chosen</span>
+    </p>
+    <p class="wl-muted" x-show="destinationId && !carRouteSummary" x-cloak>
+      no confirmed route yet — distance can be added later
+    </p>
+  </section>
+
+  <!-- employer car / passenger branch -->
+  <section class="wl-mode-branch" x-cloak x-show="['employer_car','passenger'].includes(transportMode)" data-passenger-branch>
+    <h2 class="wl-section__title">car or passenger</h2>
+    <label class="wl-field">
+      <span class="wl-field__label">actual kilometres, optional</span>
+      <input class="wl-field__input" name="actual_kilometres" inputmode="decimal" autocomplete="off">
+    </label>
+    <p class="wl-muted" x-show="destinationId && carRouteSummary" x-cloak>
+      confirmed route · <span x-text="carRouteSummary">distance available once a destination is chosen</span>
+    </p>
+    <p class="wl-muted" x-show="destinationId && !carRouteSummary" x-cloak>
+      no confirmed route yet — distance can be added later
+    </p>
+  </section>
+
+  <!-- walking / bicycle branch -->
+  <section class="wl-mode-branch" x-cloak x-show="['walking','bicycle'].includes(transportMode)" data-active-branch>
+    <p class="wl-muted">no extra details needed for this mode</p>
+  </section>
+
+  <!-- taxi / shared / other cost branch -->
+  <section class="wl-mode-branch" x-cloak x-show="['taxi','local_public_transport','plane','ferry','other'].includes(transportMode)" data-cost-section>
+    <h2 class="wl-section__title">cost and payer</h2>
+    <div class="wl-field-grid">
+      <label class="wl-field">
+        <span class="wl-field__label">total fare, optional</span>
+        <input class="wl-field__input" name="total_fare" inputmode="decimal" autocomplete="off">
+      </label>
+      <label class="wl-field">
+        <span class="wl-field__label">personally paid</span>
+        <input class="wl-field__input" name="personally_paid" inputmode="decimal" autocomplete="off">
+      </label>
+    </div>
+    <label class="wl-check">
+      <input type="checkbox" class="wl-check__input" name="employer_paid">
+      <span class="wl-check__label">employer paid directly</span>
+    </label>
+    <label class="wl-field">
+      <span class="wl-field__label">tax-free employer reimbursement</span>
+      <input class="wl-field__input" name="reimbursed_amount" inputmode="decimal" autocomplete="off">
+    </label>
+    <a class="wl-btn wl-btn--secondary" href="{% url 'evidence:receipt_inbox' %}">attach receipt</a>
+    <details class="wl-disclosure">
+      <summary class="wl-disclosure__summary" data-cost-toggle>payer note</summary>
+      <div class="wl-disclosure__body">
+        <label class="wl-field">
+          <span class="wl-field__label">payer description, optional</span>
+          <input class="wl-field__input" name="payer_description" autocomplete="off">
+        </label>
+      </div>
+    </details>
+  </section>
+
+  <!-- record for: two independent output tracks -->
+  <section class="wl-section wl-record-for" data-record-for aria-labelledby="record-for-heading">
+    <h2 id="record-for-heading" class="wl-section__title">record for</h2>
+    <label class="wl-check" data-track-tax>
+      <input type="checkbox" class="wl-check__input" name="tax_relevant" checked x-model="taxRelevant">
+      <span class="wl-check__label">personal tax</span>
+    </label>
+    <label class="wl-check" data-track-employer>
+      <input type="checkbox" class="wl-check__input" name="employer_reimbursable" x-model="employerReimbursable">
+      <span class="wl-check__label">employer reimbursement</span>
+    </label>
+    <p class="wl-muted wl-dual-note" data-dual-track-note x-show="taxRelevant && employerReimbursable" x-cloak>
+      one event, two outputs; reimbursements are netted from the tax amount.
+    </p>
+  </section>
+
+  <label class="wl-field">
+    <span class="wl-field__label">note, optional</span>
+    <textarea class="wl-field__input" name="note" rows="3"></textarea>
+  </label>
+
+  <div class="wl-sticky-submit" data-sticky-submit>
+    <button type="submit" class="wl-btn wl-btn--primary" :disabled="!destinationId">save journey</button>
+    <button type="submit" class="wl-btn wl-btn--secondary" data-save-incomplete x-show="!destinationId" x-cloak>save incomplete</button>
+  </div>
+</form>
+{% endblock %}

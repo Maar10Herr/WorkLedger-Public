@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Undone · WorkLedger{% endblock %}
+{% block content %}
+{% url 'ledger:enter' as enter_url %}
+<section class="wl-panel" aria-labelledby="undone-title">
+  <div class="wl-success">
+    <span class="wl-success__icon">
+      {% include "components/icon.html" with name="undo" size="26" only %}
+    </span>
+    <h1 id="undone-title" class="wl-title">undone</h1>
+    <p class="wl-subtitle">The original remains in revision history.</p>
+  </div>
+  <div class="wl-actions">
+    {% include "components/button.html" with label="continue" href=enter_url variant="primary" block=True only %}
+  </div>
+</section>
+{% endblock %}

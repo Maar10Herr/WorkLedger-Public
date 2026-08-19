@@ -1,0 +1,17 @@
+{% comment %}
+Page header with optional back action, eyebrow, title, and subtitle.
+Usage:
+  {% include "components/page_header.html" with title="enter new" only %}
+  {% include "components/page_header.html" with back=back_url back_label="home" eyebrow="WorkLedger" title="Saved" only %}
+{% endcomment %}
+<header class="wl-header">
+  {% if back %}
+    <a class="wl-back" href="{{ back }}">
+      {% include "components/icon.html" with name="arrow-left" size="16" only %}
+      <span>{{ back_label|default:"home" }}</span>
+    </a>
+  {% endif %}
+  {% if eyebrow %}<p class="wl-eyebrow">{{ eyebrow }}</p>{% endif %}
+  <h1 class="wl-title{% if center %} wl-title--center{% endif %}" {% if title_id %}id="{{ title_id }}"{% endif %}>{{ title }}</h1>
+  {% if subtitle %}<p class="wl-subtitle">{{ subtitle }}</p>{% endif %}
+</header>

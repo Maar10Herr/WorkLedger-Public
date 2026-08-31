@@ -4,6 +4,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import sqlite3
 import tempfile
 import uuid
@@ -29,6 +30,10 @@ if TYPE_CHECKING:
     from .models import ExportArtifact
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+FIXED_CORE_MODIFIED = b"1980-01-01T00:00:00Z"
+CORE_MODIFIED_RE = re.compile(
+    rb"(<dcterms:modified\b[^>]*>)[^<]*(</dcterms:modified>)"
+)
 SHEET_NAMES = (
     "Events",
     "Journeys",
@@ -105,7 +110,12 @@ def _normalized_zip(source: Path, destination: Path) -> None:
             info.compress_type = zipfile.ZIP_DEFLATED
             info.create_system = 3
             info.external_attr = 0o100644 << 16
-            outgoing.writestr(info, incoming.read(name), compress_type=zipfile.ZIP_DEFLATED)
+            contents = incoming.read(name)
+            if name == "docProps/core.xml":
+                contents = CORE_MODIFIED_RE.sub(
+                    rb"\g<1>" + FIXED_CORE_MODIFIED + rb"\g<2>", contents, count=1
+                )
+            outgoing.writestr(info, contents, compress_type=zipfile.ZIP_DEFLATED)
 
 
 def _tax_rule_rows(start: date, end: date) -> list[TaxRule]:

@@ -5,6 +5,7 @@ case "${1:-web}" in
   web)
     DATABASE_URL="${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}" \
       python manage.py migrate --noinput --settings=config.settings.production
+    unset MIGRATION_DATABASE_URL WORKLEDGER_RUNTIME_DB_USER
     python manage.py collectstatic --noinput --settings=config.settings.production
     exec gunicorn config.wsgi:application \
       --bind 0.0.0.0:8000 \

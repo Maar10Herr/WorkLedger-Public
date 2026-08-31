@@ -55,6 +55,17 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _safe_archive_leaf(filename: str, fallback: str = "attachment") -> str:
+    """Keep user-controlled names from becoming portable ZIP paths."""
+    leaf = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    safe = "".join(
+        character
+        for character in leaf
+        if ord(character) >= 32 and character not in ':*?"<>|'
+    ).strip().strip(".")
+    return safe[:180] or fallback
+
+
 def _events_as_of(start: date, end: date, as_of: datetime) -> list[ExportEvent]:
     rows: list[ExportEvent] = []
     for event in Event.objects.all().order_by("id"):
@@ -941,7 +952,10 @@ def build_full_zip(
             if str(attachment.pk) in seen:
                 continue
             seen.add(str(attachment.pk))
-            original_name = f"attachments/originals/{attachment.pk}_{attachment.original_filename}"
+            original_name = (
+                f"attachments/originals/{attachment.pk}_"
+                f"{_safe_archive_leaf(attachment.original_filename)}"
+            )
             files[original_name] = attachment.original_path.read_bytes()
             if attachment.relative_preview_path and attachment.preview_path.exists():
                 preview_name = f"attachments/previews/{attachment.pk}.jpg"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.http import FileResponse, HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -59,8 +59,18 @@ def create_export(request: HttpRequest) -> HttpResponse:
 @require_GET
 def download_export(request: HttpRequest, export_id: object) -> FileResponse:
     artifact = get_object_or_404(ExportArtifact, pk=export_id)
+    try:
+        path = artifact.path
+    except (OSError, ValueError) as exc:
+        raise Http404 from exc
+    if not path.is_file():
+        raise Http404
+    try:
+        stream = path.open("rb")
+    except OSError as exc:
+        raise Http404 from exc
     response = FileResponse(
-        artifact.path.open("rb"), as_attachment=True, filename=artifact.path.name
+        stream, as_attachment=True, filename=path.name
     )
     response["X-Content-SHA256"] = artifact.sha256
     return response
@@ -154,10 +164,26 @@ def package_detail(request: HttpRequest, package_id: object) -> HttpResponse:
 @require_GET
 def download_package(request: HttpRequest, package_id: object) -> FileResponse:
     package = get_object_or_404(EmployerPackage, pk=package_id)
-    if not package.relative_package_path or not package.package_path.exists():
+    if not package.relative_package_path:
         generate_package_zip(package)
+    try:
+        path = package.package_path
+    except (OSError, ValueError) as exc:
+        raise Http404 from exc
+    if not path.is_file():
+        generate_package_zip(package)
+        try:
+            path = package.package_path
+        except (OSError, ValueError) as exc:
+            raise Http404 from exc
+    if not path.is_file():
+        raise Http404
+    try:
+        stream = path.open("rb")
+    except OSError as exc:
+        raise Http404 from exc
     response = FileResponse(
-        package.package_path.open("rb"), as_attachment=True, filename=package.package_path.name
+        stream, as_attachment=True, filename=path.name
     )
     response["X-Content-SHA256"] = package.package_sha256
     return response

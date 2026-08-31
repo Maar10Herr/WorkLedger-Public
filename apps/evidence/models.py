@@ -10,6 +10,16 @@ from django.db import models
 from apps.ledger.models import Event
 
 
+def _safe_data_path(relative_path: str) -> Path:
+    if not relative_path:
+        raise ValueError("A stored attachment path is required")
+    root = Path(settings.DATA_DIR).resolve()
+    path = (root / relative_path).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("Stored attachment path escapes the data directory")
+    return path
+
+
 class PreviewStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     READY = "ready", "Ready"
@@ -44,15 +54,15 @@ class Attachment(models.Model):
 
     @property
     def original_path(self) -> Path:
-        return Path(settings.DATA_DIR) / self.relative_original_path
+        return _safe_data_path(self.relative_original_path)
 
     @property
     def preview_path(self) -> Path:
-        return Path(settings.DATA_DIR) / self.relative_preview_path
+        return _safe_data_path(self.relative_preview_path)
 
     @property
     def thumbnail_path(self) -> Path:
-        return Path(settings.DATA_DIR) / self.relative_thumbnail_path
+        return _safe_data_path(self.relative_thumbnail_path)
 
 class AttachmentLink(models.Model):
     attachment = models.ForeignKey(Attachment, on_delete=models.PROTECT, related_name="links")

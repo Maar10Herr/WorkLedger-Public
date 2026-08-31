@@ -2,7 +2,7 @@
 
 ## Architecture
 
-A cohesive Django 5.2 monolith runs as `web` (Gunicorn) and `worker` (Celery), backed by PostgreSQL 18 and Redis. Django templates provide all pages. Alpine.js owns local progressive-disclosure state and local drafts; HTMX is reserved for server-derived fragments (lookup, history, saved-location creation). Originals, previews, exports, and backups live below a configurable host bind mount; PostgreSQL stores metadata only.
+A Django 5.2 monolith runs as `web` (Gunicorn) and `worker` (Celery), backed by PostgreSQL 18 and Redis. Django templates provide all pages. Alpine.js owns local progressive-disclosure state and local drafts; HTMX is reserved for server-derived fragments (lookup, history, saved-location creation). Originals, previews, exports, and backups live below a configurable host bind mount; PostgreSQL stores metadata only.
 
 Domain code is split into explicit Django apps: `accounts` (owner PIN/session), `ledger` (events/revisions/audit), `travel` (locations/journeys/routes/trains/passes), `evidence` (streamed attachments/previews), `expenses` (expenses and reimbursement), `taxes` (versioned facts/rules/derivations), and `exports` (range packages and portable backup). Services own transactions and calculations; views remain thin.
 
@@ -25,7 +25,9 @@ After PIN login the home page has exactly two dominant controls: **enter new** a
 
 `enter new` opens three large branches. Work-from-home posts immediately with one tap. Travel and expense forms are single-page decision trees: destination then transport, with only mode-specific fields visible. Every form accepts an incomplete save and then shows the smallest useful missing-facts list. Recent values and unsent drafts stay in browser storage. Mobile controls are thumb-sized, labels are explicit, and the normal receipt file input omits `capture`.
 
-The timeline is dense, reverse chronological, filterable, and links to current facts, derivations, attachments, reimbursement state, and revision diffs. Exports are date-range actions, never scheduled annual jobs.
+The timeline is reverse chronological and filterable; entries link to current
+facts, derivations, attachments, reimbursement state, and revision diffs. Exports
+use explicit date ranges.
 
 ## Security and reliability
 
@@ -35,4 +37,8 @@ All exports are deterministic (stable ordering, canonical JSON, fixed schemas). 
 
 ## Verification strategy
 
-Use vertical TDD slices. Unit/property tests cover tax boundaries, decimal arithmetic, canonical audit hashing, filters, and revision diffs. PostgreSQL integration tests exercise triggers and concurrency. Django client tests cover workflows. Playwright uses an iPhone viewport. Compose smoke tests verify health/readiness, worker execution, export generation, and a backup restored into a second clean Compose project.
+Unit/property tests cover tax boundaries, decimal arithmetic, canonical audit
+hashing, filters, and revision diffs. PostgreSQL integration tests exercise
+triggers and concurrency. Django client tests cover workflows. Playwright covers
+a 390 × 844 mobile viewport. Run Compose and backup/restore checks on disposable
+infrastructure before deployment.

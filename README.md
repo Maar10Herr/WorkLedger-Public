@@ -10,9 +10,9 @@ travel, expenses, receipts, tax-relevant facts, and employer reimbursement.
 
 > [!IMPORTANT]
 > **Experimental self-hosted software.** WorkLedger preserves evidence and
-> records deterministic derivations; it does not provide tax, legal,
-> accounting, or employment advice. Review exported facts and amounts against
-> the rules and evidence applicable to the relevant person and filing period.
+> records deterministic derivations. It supplies no tax, legal, accounting, or
+> employment advice. Review exported facts and amounts against the rules and
+> evidence applicable to the relevant person and filing period.
 
 **[Start locally](#quick-start)** ·
 **[Read the architecture](docs/ARCHITECTURE.md)** ·
@@ -94,8 +94,8 @@ binds the web service to `127.0.0.1`.
 
 ## Evidence integrity
 
-Each event has a stable identity and an ordered revision history. Editing adds
-a revision rather than replacing the previous representation. Database guards
+Each event has a stable identity and an ordered revision history. Edits append
+revisions and preserve previous representations. Database guards
 reject deletion, mutation of protected revision fields, broken predecessor
 links, and event-identity changes. Exports include normalized records and hashes
 so a reviewer can trace a derived amount back to its evidence and revision.
@@ -113,8 +113,8 @@ service is loopback-only.
 
 `compose.review.yaml` can expose a temporary trusted-LAN review port without
 TLS. For remote access, keep the application behind an authenticated private
-network or a correctly configured TLS reverse proxy. The project has not
-received an external security audit.
+network or a correctly configured TLS reverse proxy. See [`SECURITY.md`](SECURITY.md)
+for audit status, reporting, and deployment requirements.
 
 Runtime data belongs outside version control:
 
@@ -141,8 +141,8 @@ OPENROUTESERVICE_API_KEY=
 ```
 
 Provider output enters the ledger as an unconfirmed fact until reviewed.
-Manual train entry and manually confirmed distance remain available without
-provider access.
+Manual train entry and distance confirmation remain available when providers are
+unavailable.
 
 ## Backups and recovery
 

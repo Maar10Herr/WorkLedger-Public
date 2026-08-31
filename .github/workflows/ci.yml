@@ -45,6 +45,7 @@ jobs:
           --health-retries 20
     env:
       WORKLEDGER_TEST_DATABASE_URL: postgresql://workledger:workledger@127.0.0.1:5432/workledger_test
+      WORKLEDGER_RUNTIME_DB_USER: workledger_app
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
@@ -52,6 +53,20 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --all-groups --frozen
+      - name: Create runtime database role
+        env:
+          PGPASSWORD: workledger
+        run: |
+          psql --host 127.0.0.1 --port 5432 --username workledger \
+            --dbname workledger_test --set=ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'workledger_app') THEN
+              CREATE ROLE workledger_app LOGIN PASSWORD 'workledger_app';
+            END IF;
+          END
+          $$;
+          SQL
       - name: Test against PostgreSQL
         run: uv run pytest -q --ds=config.settings.postgres_test
 

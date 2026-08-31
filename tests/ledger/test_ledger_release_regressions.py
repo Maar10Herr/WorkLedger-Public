@@ -273,7 +273,11 @@ def test_ordinary_tax_section_hides_raw_per_diem_rule_codes() -> None:
         derivation_hash="f" * 64,
     )
     content = _detail(logged_in_client(), activity.pk)
-    ordinary = content.split("data-technical-details")[0]
+    ordinary_match = re.search(
+        r'<section[^>]*data-detail-section="tax"[^>]*>(.*?)</section>', content, re.S
+    )
+    assert ordinary_match is not None
+    ordinary = ordinary_match.group(1)
     # The humanised per-diem total stays in the ordinary tax section…
     assert "meal per diem" in ordinary.casefold()
     assert "12.00" in ordinary

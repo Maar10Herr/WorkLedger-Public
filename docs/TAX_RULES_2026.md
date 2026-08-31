@@ -1,6 +1,8 @@
 # German tax-rule provenance (2026)
 
-WorkLedger stores the implemented facts as versioned `TaxRule` rows. This note records the legal source and the interpretation used by the 2026 seed migration. It is not tax advice.
+WorkLedger stores the implemented facts as versioned `TaxRule` rows. This note
+records the legal source and the interpretation used by the 2026 seed migration;
+consult applicable tax guidance for filing decisions.
 
 ## Primary source
 
@@ -25,8 +27,14 @@ EStG §9(4a) sentence 8 reduces the €28 full-day rate by 20% for breakfast and
 
 ### Three-month limit
 
-EStG §9(4a) sentence 6 limits meal per diems to the first three months of a longer-term activity at the same workplace. Sentence 7 resets the clock after an interruption of at least four weeks. WorkLedger does not silently infer uncertain cases: the event is flagged incomplete until the owner records yes/no.
+EStG §9(4a) sentence 6 limits meal per diems to the first three months of a
+longer-term activity at the same workplace. Sentence 7 resets the clock after an
+interruption of at least four weeks. Uncertain cases remain incomplete until the
+owner records yes/no.
 
 ## Versioning policy
 
-Rules are append-only. A later legal change must create a new code/effective period; existing rule rows and derivation records must not be edited. Exports include the exact rule codes, values, source citation, revision snapshots, and derivation hashes used.
+Rules are append-only. Later legal changes create a new code/effective period;
+existing rule rows and derivation records remain unchanged. Exports include the
+exact rule codes, values, source citation, revision snapshots, and derivation
+hashes used.

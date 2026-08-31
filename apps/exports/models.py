@@ -12,6 +12,16 @@ from apps.ledger.models import Event, EventRevision
 from apps.travel.models import Employer
 
 
+def _safe_data_path(relative_path: str) -> Path:
+    if not relative_path:
+        raise ValueError("A stored artifact path is required")
+    root = Path(settings.DATA_DIR).resolve()
+    path = (root / relative_path).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("Stored artifact path escapes the data directory")
+    return path
+
+
 class ExportArtifact(models.Model):
     class Kind(models.TextChoices):
         XLSX = "xlsx", "Excel workbook"
@@ -46,7 +56,7 @@ class ExportArtifact(models.Model):
 
     @property
     def path(self) -> Path:
-        return Path(settings.DATA_DIR) / self.relative_path
+        return _safe_data_path(self.relative_path)
 
 
 class ExportJob(models.Model):
@@ -115,7 +125,7 @@ class EmployerPackage(models.Model):
 
     @property
     def package_path(self) -> Path:
-        return Path(settings.DATA_DIR) / self.relative_package_path
+        return _safe_data_path(self.relative_package_path)
 
 
 class PackageEvent(models.Model):

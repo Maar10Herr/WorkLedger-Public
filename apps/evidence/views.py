@@ -156,9 +156,9 @@ def attachment_download(
 ) -> FileResponse:
     attachment = get_object_or_404(Attachment, pk=attachment_id)
     relative = {
-        "original": attachment.original_path,
-        "preview": attachment.preview_path,
-        "thumbnail": attachment.thumbnail_path,
+        "original": attachment.relative_original_path,
+        "preview": attachment.relative_preview_path,
+        "thumbnail": attachment.relative_thumbnail_path,
     }.get(variant)
     if not relative:
         raise Http404

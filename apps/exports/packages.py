@@ -25,6 +25,7 @@ from apps.taxes.models import PerDiemCalculation
 from .models import EmployerPackage, PackageEvent, PackageStatusChange
 from .services import (
     _normalized_zip,
+    _safe_archive_leaf,
     _write_deterministic_file,
     _write_sheet,
 )
@@ -305,7 +306,7 @@ def generate_package_zip(package: EmployerPackage, *, as_of: datetime | None = N
                 continue
             seen.add(attachment.pk)
             files[
-                f"receipts/{attachment.pk}_{attachment.original_filename}"
+                f"receipts/{attachment.pk}_{_safe_archive_leaf(attachment.original_filename)}"
             ] = attachment.original_path.read_bytes()
         manifest = {
             "application": "WorkLedger",

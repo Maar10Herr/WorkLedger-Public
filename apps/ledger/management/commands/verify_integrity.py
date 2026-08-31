@@ -28,7 +28,10 @@ class Command(BaseCommand):
                 raise CommandError(f"Current revision is not latest for event {event.pk}")
         root = settings.DATA_DIR.resolve()
         for attachment in Attachment.objects.iterator():
-            path = (settings.DATA_DIR / attachment.original_path).resolve()
+            try:
+                path = attachment.original_path
+            except ValueError as exc:
+                raise CommandError(f"Unsafe attachment path {attachment.pk}") from exc
             if not path.is_relative_to(root) or not path.is_file():
                 raise CommandError(f"Missing attachment original {attachment.pk}")
             digest = hashlib.sha256()

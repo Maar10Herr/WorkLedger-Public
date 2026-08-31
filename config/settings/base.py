@@ -4,10 +4,35 @@ import os
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(os.environ.get("WORKLEDGER_DATA_PATH", BASE_DIR / "workledger-data"))
 SECRET_KEY = os.environ.get("WORKLEDGER_SECRET_KEY", "test-only-insecure-secret-key")
 DEBUG = False
+
+
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value not in {"true", "false"}:
+        raise ImproperlyConfigured(f"{name} must be true or false")
+    return value == "true"
+
+
+def env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    raw = os.environ.get(name)
+    try:
+        value = default if raw is None else int(raw)
+    except ValueError as exc:
+        raise ImproperlyConfigured(f"{name} must be an integer") from exc
+    if value < minimum:
+        raise ImproperlyConfigured(f"{name} must be at least {minimum}")
+    return value
+
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get("WORKLEDGER_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -66,15 +91,23 @@ ASGI_APPLICATION = "config.asgi.application"
 
 def database_from_url(url: str) -> dict[str, object]:
     parsed = urlparse(url)
-    if parsed.scheme not in {"postgres", "postgresql"}:
+    if parsed.scheme.lower() not in {"postgres", "postgresql"}:
         raise ValueError("DATABASE_URL must use postgresql://")
+    try:
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("DATABASE_URL contains an invalid host or port") from exc
+    database_name = unquote(parsed.path.lstrip("/"))
+    if not hostname or not database_name:
+        raise ValueError("DATABASE_URL must include a host and database name")
     return {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": unquote(parsed.path.lstrip("/")),
+        "NAME": database_name,
         "USER": unquote(parsed.username or ""),
         "PASSWORD": unquote(parsed.password or ""),
-        "HOST": parsed.hostname or "",
-        "PORT": str(parsed.port or 5432),
+        "HOST": hostname,
+        "PORT": str(port or 5432),
         "CONN_MAX_AGE": 60,
         "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {"connect_timeout": 5},
@@ -108,7 +141,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = os.environ.get("WORKLEDGER_SECURE_COOKIES", "true").lower() == "true"
+SESSION_COOKIE_SECURE = env_bool("WORKLEDGER_SECURE_COOKIES", True)
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 SESSION_SAVE_EVERY_REQUEST = True
@@ -131,12 +164,15 @@ CELERY_BEAT_SCHEDULE = {
     }
 }
 
-WORKLEDGER_MAX_UPLOAD_BYTES = int(os.environ.get("WORKLEDGER_MAX_UPLOAD_BYTES", 1_073_741_824))
-WORKLEDGER_MIN_FREE_DISK_BYTES = int(
-    os.environ.get("WORKLEDGER_MIN_FREE_DISK_BYTES", 2_147_483_648)
+WORKLEDGER_MAX_UPLOAD_BYTES = env_int(
+    "WORKLEDGER_MAX_UPLOAD_BYTES", 1_073_741_824, minimum=1
+)
+WORKLEDGER_MIN_FREE_DISK_BYTES = env_int(
+    "WORKLEDGER_MIN_FREE_DISK_BYTES", 2_147_483_648
 )
 FILE_UPLOAD_MAX_MEMORY_SIZE = 0
-DATA_UPLOAD_MAX_MEMORY_SIZE = None
+# Keep multipart parsing bounded while allowing form overhead around one file.
+DATA_UPLOAD_MAX_MEMORY_SIZE = WORKLEDGER_MAX_UPLOAD_BYTES + 16 * 1024 * 1024
 
 LOGGING = {
     "version": 1,

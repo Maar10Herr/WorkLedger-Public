@@ -12,8 +12,8 @@ jobs:
     name: Python and Django
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
       - name: Install locked dependencies
@@ -25,12 +25,66 @@ jobs:
       - name: Test with disposable SQLite settings
         run: uv run pytest -q
 
+  postgres:
+    name: PostgreSQL integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-trixie@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
+        env:
+          POSTGRES_DB: workledger_test
+          POSTGRES_USER: workledger
+          POSTGRES_PASSWORD: workledger
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workledger -d workledger_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      WORKLEDGER_TEST_DATABASE_URL: postgresql://workledger:workledger@127.0.0.1:5432/workledger_test
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --all-groups --frozen
+      - name: Test against PostgreSQL
+        run: uv run pytest -q --ds=config.settings.postgres_test
+
+  e2e:
+    name: Browser smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WORKLEDGER_E2E: "1"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: uv sync --all-groups --frozen
+      - name: Build browser assets
+        run: npm ci && npm run build
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Run browser tests
+        run: uv run pytest -q tests/e2e
+
   frontend:
     name: Browser assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
           cache: npm
@@ -42,6 +96,6 @@ jobs:
     name: Shell syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Check scripts
         run: bash -n ./*.sh docker/*.sh

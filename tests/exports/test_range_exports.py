@@ -14,6 +14,7 @@ from apps.evidence.models import AttachmentLink
 from apps.evidence.services import store_attachment
 from apps.expenses.services import create_expense
 from apps.exports.services import (
+    _safe_archive_leaf,
     build_full_zip,
     build_range_csv,
     build_range_json,
@@ -29,6 +30,14 @@ pytestmark = pytest.mark.django_db
 
 RECORDED_AT = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
 RECORDED_AFTER_AS_OF = datetime(2026, 8, 5, 12, 1, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("original", "expected"),
+    [(r"..\..\receipt.pdf", "receipt.pdf"), ("\n", "attachment")],
+)
+def test_archive_filename_is_a_safe_leaf(original: str, expected: str) -> None:
+    assert _safe_archive_leaf(original) == expected
 
 
 @pytest.fixture(autouse=True)

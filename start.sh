@@ -41,6 +41,12 @@ case "$data_dir:$backup_dir" in
     exit 2
     ;;
 esac
+if ! sh scripts/validate_data_directory.sh "$data_dir" "$(pwd -P)" >/dev/null; then
+  exit 2
+fi
+if ! sh scripts/validate_data_directory.sh "$backup_dir" "$(pwd -P)" backup >/dev/null; then
+  exit 2
+fi
 port="$(setting_value WORKLEDGER_PORT)"
 if [ -z "$port" ]; then
   port=8787

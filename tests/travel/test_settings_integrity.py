@@ -230,11 +230,17 @@ def test_default_residence_swap_updates_previous(client: Client) -> None:
     assert Location.objects.get(is_default_residence=True).name == "New Home"
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.skipif(
     connection.vendor != "postgresql", reason="concurrency check requires PostgreSQL"
 )
 def test_concurrent_first_residence_leaves_single_default(client: Client) -> None:
     """Two racing first-residence creates must end with exactly one default.
+
+    This test uses thread-local database connections. ``transaction=True`` is
+    required so those connections can see the owner row created by the setup
+    fixture; Django's default test transaction would otherwise keep that row
+    uncommitted and make a concurrent insert wait indefinitely.
 
     The partial unique index is the backstop: exactly one of the two racing
     inserts wins, the other rolls back and gets a retryable inline error.

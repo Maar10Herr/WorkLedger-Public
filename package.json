@@ -7,7 +7,7 @@
     "test:js": "node --check static/js/workledger-ui.js && node --check static/js/drafts.js && node tests/js/category_picker_event_order.test.js"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "4.1.14",
+    "@tailwindcss/cli": "4.3.3",
     "alpinejs": "3.15.0",
     "htmx.org": "2.0.7",
     "tailwindcss": "4.1.14"

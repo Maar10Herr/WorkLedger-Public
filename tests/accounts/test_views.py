@@ -96,3 +96,16 @@ def test_login_rejects_external_next_url() -> None:
 
     assert response.status_code == 302
     assert response.headers["Location"] == reverse("home")
+
+
+def test_login_accepts_relative_next_url() -> None:
+    configure_pin("123456")
+    target = reverse("home") + "?filter=unmatched"
+
+    response = Client().post(
+        reverse("accounts:login") + "?next=" + target,
+        {"pin": "123456"},
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == target

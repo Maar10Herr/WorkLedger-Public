@@ -181,15 +181,9 @@ def test_unresolved_items_show_semantic_summaries_no_uuid() -> None:
 
 
 def test_unresolved_empty_state() -> None:
-    seed_demo_events()
-    from apps.ledger.models import EventRevision
-
-    # Detach, then drop the append-only rows via queryset delete (bypasses the
-    # model-level immutability guards, which are irrelevant to test teardown).
-    Event.objects.update(current_revision=None)
-    EventRevision.objects.update(parent_revision=None)
-    EventRevision.objects.all().delete()
-    Event.objects.all().delete()
+    # The transactional test database starts without events. Keep the empty
+    # state genuine instead of bypassing append-only constraints to remove
+    # seeded rows.
     content = _unresolved(logged_in_client())
     assert "everything is complete" in content
 

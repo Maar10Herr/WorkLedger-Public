@@ -27,6 +27,30 @@ FORMAT_BY_SIGNATURE = (
 )
 
 
+def _safe_storage_suffix(filename: str) -> str:
+    """Return a fixed filename suffix for the attachment storage path."""
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".jpg":
+        return ".jpg"
+    if suffix == ".jpeg":
+        return ".jpeg"
+    if suffix == ".png":
+        return ".png"
+    if suffix == ".webp":
+        return ".webp"
+    if suffix == ".tif":
+        return ".tif"
+    if suffix == ".tiff":
+        return ".tiff"
+    if suffix == ".pdf":
+        return ".pdf"
+    if suffix == ".heic":
+        return ".heic"
+    if suffix == ".heif":
+        return ".heif"
+    return ".bin"
+
+
 def _detect_format(path: Path, first_bytes: bytes) -> tuple[str, str]:
     for signature, image_format, mime_type in FORMAT_BY_SIGNATURE:
         if first_bytes.startswith(signature):
@@ -55,9 +79,12 @@ def store_attachment(upload: UploadedFile) -> Attachment:
     month = uploaded_at.strftime("%Y/%m")
     attachment_id = Attachment._meta.pk.get_default()
     upload_name = upload.name or "upload.bin"
-    suffix = Path(upload_name).suffix.lower()[:12] or ".bin"
+    suffix = _safe_storage_suffix(upload_name)
     relative_path = Path(month) / "originals" / f"{attachment_id}{suffix}"
-    destination = Path(settings.DATA_DIR) / relative_path
+    data_root = Path(settings.DATA_DIR).resolve()
+    destination = (data_root / relative_path).resolve()
+    if not destination.is_relative_to(data_root):
+        raise ValidationError("Attachment path escapes the data directory.")
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     free_bytes = shutil.disk_usage(destination.parent).free

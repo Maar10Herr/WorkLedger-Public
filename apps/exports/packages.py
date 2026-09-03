@@ -112,6 +112,19 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+def _safe_package_status(status: str) -> str:
+    """Map stored status to a fixed filename component."""
+    if status == EmployerPackage.Status.DRAFT:
+        return "draft"
+    if status == EmployerPackage.Status.SUBMITTED:
+        return "submitted"
+    if status == EmployerPackage.Status.REIMBURSED:
+        return "reimbursed"
+    if status == EmployerPackage.Status.REJECTED:
+        return "rejected"
+    raise ValueError(f"Unsupported employer package status: {status}")
+
+
 def _build_claim_workbook(
     package: EmployerPackage, memberships: list[PackageEvent], destination: Path
 ) -> Path:
@@ -286,8 +299,15 @@ def generate_package_zip(package: EmployerPackage, *, as_of: datetime | None = N
         package.package_events.select_related("event", "included_revision").order_by("event_id")
     )
     event_ids = {membership.event_id for membership in memberships}
-    relative_path = f"employer-packages/{package.pk}_{package.status}.zip"
-    destination = Path(settings.DATA_DIR) / relative_path
+    package_id = str(UUID(str(package.pk)))
+    relative_path = (
+        Path("employer-packages")
+        / f"{package_id}_{_safe_package_status(package.status)}.zip"
+    )
+    data_root = Path(settings.DATA_DIR).resolve()
+    destination = (data_root / relative_path).resolve()
+    if not destination.is_relative_to(data_root):
+        raise ValueError("Employer package path escapes the data directory")
     destination.parent.mkdir(parents=True, exist_ok=True)
     links = list(
         AttachmentLink.objects.filter(event_id__in=event_ids)
@@ -332,7 +352,7 @@ def generate_package_zip(package: EmployerPackage, *, as_of: datetime | None = N
         ) as archive:
             for name, content in sorted(files.items()):
                 _write_deterministic_file(archive, name, content)
-    package.relative_package_path = relative_path
+    package.relative_package_path = relative_path.as_posix()
     package.package_sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
     package.save(update_fields=["relative_package_path", "package_sha256"])
     return destination

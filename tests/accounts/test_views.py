@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 from django.test import Client
 from django.urls import reverse
@@ -49,6 +51,16 @@ def test_home_requires_owner_session() -> None:
     assert response.headers["Location"].startswith(reverse("accounts:login"))
 
 
+def test_owner_login_redirect_encodes_original_path() -> None:
+    path = reverse("home") + "?from=dashboard&filter=unmatched"
+
+    response = Client().get(path)
+
+    location = response.headers["Location"]
+    assert urlsplit(location).path == reverse("accounts:login")
+    assert parse_qs(urlsplit(location).query)["next"] == [path]
+
+
 def test_correct_pin_creates_session_and_home_has_two_primary_actions() -> None:
     configure_pin("123456")
     client = Client()
@@ -72,3 +84,15 @@ def test_wrong_pin_does_not_authenticate() -> None:
     assert response.status_code == 200
     assert "owner_authenticated" not in client.session
     assert "PIN could not be verified" in response.content.decode()
+
+
+def test_login_rejects_external_next_url() -> None:
+    configure_pin("123456")
+
+    response = Client().post(
+        reverse("accounts:login") + "?next=https://evil.example/phish",
+        {"pin": "123456"},
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == reverse("home")

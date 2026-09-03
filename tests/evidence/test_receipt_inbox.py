@@ -11,7 +11,12 @@ from django.urls import reverse
 
 from apps.accounts.services import configure_pin
 from apps.evidence.models import Attachment, AttachmentLink
-from apps.evidence.services import receipt_display_name, reconcile_receipt, store_attachment
+from apps.evidence.services import (
+    _safe_storage_suffix,
+    receipt_display_name,
+    reconcile_receipt,
+    store_attachment,
+)
 from apps.expenses.services import create_expense
 from apps.ledger.models import Event
 from apps.ledger.services import create_event
@@ -71,6 +76,14 @@ def test_identical_upload_bytes_are_deduplicated(
 
     assert first.pk == second.pk
     assert Attachment.objects.count() == 1
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [("receipt.png", ".png"), ("receipt.tar.gz", ".bin"), ("../../receipt.pdf", ".pdf")],
+)
+def test_storage_suffix_is_fixed_allowlist_output(filename: str, expected: str) -> None:
+    assert _safe_storage_suffix(filename) == expected
 
 
 def test_original_download_requires_owner_session(

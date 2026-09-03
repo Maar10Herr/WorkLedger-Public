@@ -12,7 +12,12 @@ from apps.evidence.models import AttachmentLink
 from apps.evidence.services import store_attachment
 from apps.expenses.services import create_expense
 from apps.exports.models import EmployerPackage
-from apps.exports.packages import create_package, generate_package_zip, update_package_status
+from apps.exports.packages import (
+    _safe_package_status,
+    create_package,
+    generate_package_zip,
+    update_package_status,
+)
 from apps.ledger.models import Event
 
 pytestmark = pytest.mark.django_db
@@ -81,3 +86,9 @@ def test_package_rejects_unknown_or_malformed_event_ids() -> None:
             event_ids=["00000000-0000-0000-0000-000000000001"],
         )
     assert EmployerPackage.objects.count() == 0
+
+
+def test_package_archive_status_is_fixed_allowlist_output() -> None:
+    assert _safe_package_status(EmployerPackage.Status.DRAFT) == "draft"
+    with pytest.raises(ValueError, match="Unsupported employer package status"):
+        _safe_package_status("../../outside")

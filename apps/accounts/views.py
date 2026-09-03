@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
@@ -30,11 +29,9 @@ def login_view(request: HttpRequest) -> HttpResponse:
             request.session["owner_authenticated"] = True
             request.session.set_expiry(60 * 60 * 24 * 30)
             target = request.GET.get("next", "")
-            if not url_has_allowed_host_and_scheme(
-                target, allowed_hosts=None, require_https=False
-            ):
-                target = reverse("home")
-            return HttpResponseRedirect(target)
+            if url_has_allowed_host_and_scheme(target, allowed_hosts=None):
+                return HttpResponseRedirect(target)
+            return redirect("home")
         error = "PIN could not be verified."
         retry_after = result.retry_after_seconds
     return render(

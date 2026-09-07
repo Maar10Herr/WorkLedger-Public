@@ -1,7 +1,7 @@
 {
   "name": "workledger-assets",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "scripts": {
     "build": "tailwindcss -i ./assets/styles.css -o ./static/css/workledger.css --minify && mkdir -p ./static/vendor && cp ./node_modules/htmx.org/dist/htmx.min.js ./static/vendor/htmx.min.js && cp ./node_modules/alpinejs/dist/cdn.min.js ./static/vendor/alpine.min.js",
     "test:js": "node --check static/js/workledger-ui.js && node --check static/js/drafts.js && node tests/js/category_picker_event_order.test.js"

@@ -23,7 +23,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "django-stubs[compatible-mypy]>=5.2,<6",
+  "django-stubs[compatible-mypy]>=5.2,<7",
   "hypothesis>=6.130,<7",
   "mypy>=1.17,<2",
   "playwright>=1.54,<2",
